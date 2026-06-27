@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Translator Sidebar",
+  "version": "0.1.0",
+  "description": "Adds a clean sidebar to YouTube video pages with the current video title.",
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "css": ["styles.css"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
