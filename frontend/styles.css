@@ -39,6 +39,120 @@
   line-height: 1.5;
 }
 
+.yt-translator-sidebar__section {
+  margin-top: 18px;
+}
+
+.yt-translator-sidebar__subheading {
+  margin: 0 0 8px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.yt-translator-sidebar__status {
+  margin: 0 0 10px;
+  color: #a8a8a8;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.yt-translator-sidebar__button {
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  color: #050505;
+  background: #f2f2f2;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.yt-translator-sidebar__button:hover {
+  background: #ffffff;
+}
+
+.yt-translator-sidebar__button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.yt-translator-caption-river-wrap {
+  margin: 0 0 12px;
+  padding: 12px;
+  background: linear-gradient(180deg, #0b0b0b 0%, #151515 100%);
+  border: 1px solid #292929;
+  border-radius: 14px;
+}
+
+.yt-translator-sidebar__label {
+  margin: 0 0 8px;
+  color: #8f8f8f;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.yt-translator-caption-river {
+  min-height: 92px;
+  color: #8f8f8f;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.yt-translator-caption-river__line {
+  margin: 0 0 7px;
+  color: #8f8f8f;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.yt-translator-caption-river__line:nth-last-child(4) {
+  opacity: 0.38;
+}
+
+.yt-translator-caption-river__line:nth-last-child(3) {
+  opacity: 0.52;
+}
+
+.yt-translator-caption-river__line:nth-last-child(2) {
+  opacity: 0.7;
+}
+
+.yt-translator-caption-river__line--active {
+  margin-bottom: 0;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  opacity: 1;
+}
+
+.yt-translator-transcript {
+  box-sizing: border-box;
+  max-height: 300px;
+  overflow: auto;
+  padding: 12px;
+  background: #111111;
+  border: 1px solid #262626;
+  border-radius: 14px;
+}
+
+.yt-translator-transcript__line {
+  margin: 0 0 10px;
+  color: #eeeeee;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.yt-translator-transcript__line:last-child {
+  margin-bottom: 0;
+}
+
 @media (max-width: 900px) {
   #yt-translator-sidebar {
     margin-top: 12px;
