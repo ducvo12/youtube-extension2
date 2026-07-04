@@ -4,6 +4,9 @@ const TRANSCRIPT_STATUS_ID = "yt-translator-transcript-status";
 const TRANSCRIPT_ID = "yt-translator-transcript";
 const CAPTION_RIVER_ID = "yt-translator-caption-river";
 const PLAYER_CAPTURE_BUTTON_ID = "yt-translator-player-capture-button";
+const CAPTION_START_LEAD_MS = 0;
+const CAPTION_END_GRACE_MS = 500;
+const CAPTION_DISPLAY_SEGMENT_OFFSET = 0;
 let updateTimer = null;
 let captionRiverTimer = null;
 let retryCount = 0;
@@ -96,6 +99,23 @@ function getVideoElement() {
   return document.querySelector("video.html5-main-video") || document.querySelector("video");
 }
 
+function getPlaybackTimeMs() {
+  const player = document.getElementById("movie_player");
+  const playerTime = player?.getCurrentTime?.();
+
+  if (Number.isFinite(playerTime)) {
+    return playerTime * 1000;
+  }
+
+  const video = getVideoElement();
+
+  if (!video) {
+    return null;
+  }
+
+  return video.currentTime * 1000;
+}
+
 function isAdShowing() {
   const player = document.getElementById("movie_player");
 
@@ -110,28 +130,55 @@ function getActiveCaptionIndex(currentTimeMs) {
     return -1;
   }
 
-  let fallbackIndex = -1;
+  const lookupMs = currentTimeMs + CAPTION_START_LEAD_MS;
+  let activeIndex = -1;
 
   for (let index = 0; index < currentTranscriptSegments.length; index += 1) {
     const segment = currentTranscriptSegments[index];
     const startMs = segment.startMs || 0;
-    const durationMs = segment.durationMs || 0;
-    const endMs = durationMs > 0 ? startMs + durationMs : startMs + 4000;
 
-    if (currentTimeMs >= startMs && currentTimeMs < endMs) {
-      return index;
-    }
-
-    if (currentTimeMs >= startMs) {
-      fallbackIndex = index;
-    }
-
-    if (startMs > currentTimeMs) {
+    if (startMs > lookupMs) {
       break;
     }
+
+    activeIndex = index;
   }
 
-  return fallbackIndex;
+  if (activeIndex < 0) {
+    return -1;
+  }
+
+  const segment = currentTranscriptSegments[activeIndex];
+  const nextSegment = currentTranscriptSegments[activeIndex + 1];
+  const startMs = segment.startMs || 0;
+  const durationMs = segment.durationMs || 0;
+  const durationEndMs = durationMs > 0 ? startMs + durationMs : startMs + 4000;
+  const nextStartMs = nextSegment?.startMs;
+  const endMs = Number.isFinite(nextStartMs)
+    ? Math.max(durationEndMs, nextStartMs)
+    : durationEndMs;
+
+  if (currentTimeMs - CAPTION_END_GRACE_MS > endMs && nextSegment) {
+    return -1;
+  }
+
+  return activeIndex;
+}
+
+function clampCaptionIndex(index) {
+  if (!currentTranscriptSegments.length) {
+    return -1;
+  }
+
+  return Math.max(0, Math.min(index, currentTranscriptSegments.length - 1));
+}
+
+function getDisplayCaptionIndex(activeIndex) {
+  if (activeIndex < 0) {
+    return activeIndex;
+  }
+
+  return clampCaptionIndex(activeIndex + CAPTION_DISPLAY_SEGMENT_OFFSET);
 }
 
 function renderCaptionRiver(activeIndex) {
@@ -197,14 +244,14 @@ function updateCaptionRiver() {
     }
   }
 
-  const video = getVideoElement();
+  const currentTimeMs = getPlaybackTimeMs();
 
-  if (!video) {
+  if (currentTimeMs === null) {
     renderCaptionRiver(-1);
     return;
   }
 
-  const activeIndex = getActiveCaptionIndex(video.currentTime * 1000);
+  const activeIndex = getDisplayCaptionIndex(getActiveCaptionIndex(currentTimeMs));
 
   if (activeIndex !== currentCaptionIndex) {
     renderCaptionRiver(activeIndex);
@@ -855,7 +902,7 @@ function fetchTranscript(url) {
 }
 
 async function fetchTranscriptSegments(baseUrl) {
-  const formats = [null, "json3", "srv3", "vtt"];
+  const formats = ["json3", "vtt", "srv3", null];
   const errors = [];
 
   for (const format of formats) {
