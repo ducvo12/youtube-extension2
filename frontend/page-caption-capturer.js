@@ -47,6 +47,17 @@
     }, "*");
   }
 
+  function cancelCapture(requestId) {
+    const capture = captures.get(requestId);
+
+    if (!capture) {
+      return;
+    }
+
+    window.clearTimeout(capture.timeout);
+    captures.delete(requestId);
+  }
+
   const originalFetch = window.fetch;
 
   window.fetch = async function patchedFetch(...args) {
@@ -93,6 +104,11 @@
       return;
     }
 
+    if (event.data.type === "CANCEL_PLAYER_CAPTION_CAPTURE") {
+      cancelCapture(event.data.requestId);
+      return;
+    }
+
     if (event.data.type !== "START_PLAYER_CAPTION_CAPTURE") {
       return;
     }
@@ -103,5 +119,11 @@
     }, event.data.timeoutMs || 12000);
 
     captures.set(requestId, { timeout });
+    window.postMessage({
+      source: "yt-translator-caption-capturer",
+      type: "PLAYER_CAPTION_CAPTURE_STARTED",
+      requestId,
+      ok: true,
+    }, "*");
   });
 })();

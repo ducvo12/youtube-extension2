@@ -581,26 +581,69 @@ function ensurePageCaptionCapturerInjected() {
   return pageCaptionCapturerReady;
 }
 
-async function captureNextPlayerCaptionRequest() {
+async function captureNextPlayerCaptionRequest(onCaptureStarted = () => {}) {
   await ensurePageCaptionCapturerInjected();
 
   return new Promise((resolve, reject) => {
     const requestId = `${Date.now()}-${playerCaptionCaptureRequestId += 1}`;
-    const timeout = window.setTimeout(() => {
+    let settled = false;
+    let captureStarted = false;
+
+    function cancelPageCapture() {
+      window.postMessage({
+        source: "yt-translator-content",
+        type: "CANCEL_PLAYER_CAPTION_CAPTURE",
+        requestId,
+      }, "*");
+    }
+
+    function cleanup() {
+      window.clearTimeout(timeout);
       window.removeEventListener("message", handleMessage);
-      reject(new Error("Timed out waiting for YouTube caption request"));
+    }
+
+    function rejectCapture(error) {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      cancelPageCapture();
+      reject(error instanceof Error ? error : new Error(error));
+    }
+
+    const timeout = window.setTimeout(() => {
+      rejectCapture(new Error("Timed out waiting for YouTube caption request"));
     }, 14000);
 
     function handleMessage(event) {
       if (event.source !== window
         || event.data?.source !== "yt-translator-caption-capturer"
-        || event.data.type !== "PLAYER_CAPTION_CAPTURE_RESULT"
         || event.data.requestId !== requestId) {
         return;
       }
 
-      window.clearTimeout(timeout);
-      window.removeEventListener("message", handleMessage);
+      if (event.data.type === "PLAYER_CAPTION_CAPTURE_STARTED") {
+        if (captureStarted) {
+          return;
+        }
+
+        captureStarted = true;
+        Promise.resolve(onCaptureStarted()).catch(rejectCapture);
+        return;
+      }
+
+      if (event.data.type !== "PLAYER_CAPTION_CAPTURE_RESULT") {
+        return;
+      }
+
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
 
       if (!event.data.ok) {
         reject(new Error(event.data.error || "Player caption capture failed"));
@@ -708,9 +751,7 @@ async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0
   }
 
   try {
-    const capturePromise = captureNextPlayerCaptionRequest();
-    await triggerPlayerCaptionLoad(wasEnabled);
-    const captured = await capturePromise;
+    const captured = await captureNextPlayerCaptionRequest(() => triggerPlayerCaptionLoad(wasEnabled));
     const segments = parseTranscriptBodyAuto(captured.body);
 
     if (!segments.length) {
