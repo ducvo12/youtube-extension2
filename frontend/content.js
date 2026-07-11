@@ -4,16 +4,24 @@ const TRANSCRIPT_STATUS_ID = "yt-translator-transcript-status";
 const TRANSCRIPT_ID = "yt-translator-transcript";
 const CAPTION_RIVER_ID = "yt-translator-caption-river";
 const PLAYER_CAPTURE_BUTTON_ID = "yt-translator-player-capture-button";
+const CHAT_RIVER_ID = "yt-translator-chat-river";
+const CHAT_FORM_ID = "yt-translator-chat-form";
+const CHAT_INPUT_ID = "yt-translator-chat-input";
+const CHAT_SEND_BUTTON_ID = "yt-translator-chat-send";
 const CAPTION_START_LEAD_MS = 0;
 const CAPTION_END_GRACE_MS = 500;
 const CAPTION_DISPLAY_SEGMENT_OFFSET = 0;
 let updateTimer = null;
 let captionRiverTimer = null;
+let fakeChatReplyTimer = null;
 let retryCount = 0;
 let activeTranscriptRequest = 0;
 let loadedTranscriptVideoId = null;
 let currentTranscriptSegments = [];
 let currentCaptionIndex = -1;
+let chatMessages = [];
+let chatMessageCounter = 0;
+let isChatWaitingForReply = false;
 let isCaptionRiverPausedForAd = false;
 let userAllowedCaptionCapture = false;
 let activePlayerCaptionCaptureVideoId = null;
@@ -50,6 +58,135 @@ function updateSidebarTitle() {
 
 function getVideoId() {
   return new URLSearchParams(window.location.search).get("v");
+}
+
+function createChatMessage(role, content, status = "done") {
+  chatMessageCounter += 1;
+
+  return {
+    id: `${Date.now()}-${chatMessageCounter}`,
+    role,
+    content,
+    status,
+    createdAt: Date.now(),
+  };
+}
+
+function getTranscriptContextPreview() {
+  if (!currentTranscriptSegments.length) {
+    return "";
+  }
+
+  const activeIndex = currentCaptionIndex >= 0 ? currentCaptionIndex : 0;
+  const startIndex = Math.max(0, activeIndex - 1);
+
+  return currentTranscriptSegments
+    .slice(startIndex, startIndex + 3)
+    .map((segment) => segment.text)
+    .join(" ");
+}
+
+function buildFakeAssistantReply(prompt) {
+  const transcriptContext = getTranscriptContextPreview();
+  const contextLine = transcriptContext
+    ? ` I can also use the nearby caption context: "${transcriptContext}"`
+    : " Once the transcript is loaded, I will be able to use the nearby captions too.";
+
+  return `Fake assistant reply for: "${prompt}".${contextLine}`;
+}
+
+function setChatControlsWaiting(isWaiting) {
+  const input = document.getElementById(CHAT_INPUT_ID);
+  const button = document.getElementById(CHAT_SEND_BUTTON_ID);
+
+  if (input) {
+    input.disabled = isWaiting;
+  }
+
+  if (button) {
+    button.disabled = isWaiting;
+    button.textContent = isWaiting ? "Thinking..." : "Send";
+  }
+}
+
+function scrollChatRiverToBottom() {
+  const river = document.getElementById(CHAT_RIVER_ID);
+
+  if (river) {
+    river.scrollTop = river.scrollHeight;
+  }
+}
+
+function renderChatRiver() {
+  const river = document.getElementById(CHAT_RIVER_ID);
+
+  if (!river) {
+    return;
+  }
+
+  river.textContent = "";
+
+  if (!chatMessages.length) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "yt-translator-chat__empty";
+    emptyState.textContent = "Ask about a phrase, idiom, grammar pattern, or anything confusing in the video.";
+    river.appendChild(emptyState);
+    setChatControlsWaiting(isChatWaitingForReply);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  for (const message of chatMessages) {
+    const messageNode = document.createElement("article");
+    messageNode.className = `yt-translator-chat-message yt-translator-chat-message--${message.role}`;
+
+    const role = document.createElement("div");
+    role.className = "yt-translator-chat-message__role";
+    role.textContent = message.role === "user" ? "You" : "Assistant";
+
+    const content = document.createElement("p");
+    content.className = "yt-translator-chat-message__content";
+    content.textContent = message.status === "sending" ? "Thinking..." : message.content;
+
+    messageNode.append(role, content);
+    fragment.appendChild(messageNode);
+  }
+
+  river.appendChild(fragment);
+  setChatControlsWaiting(isChatWaitingForReply);
+  scrollChatRiverToBottom();
+}
+
+function submitChatPrompt() {
+  const input = document.getElementById(CHAT_INPUT_ID);
+
+  if (!input || isChatWaitingForReply) {
+    return;
+  }
+
+  const prompt = input.value.trim();
+
+  if (!prompt) {
+    input.value = "";
+    return;
+  }
+
+  input.value = "";
+  isChatWaitingForReply = true;
+  chatMessages.push(createChatMessage("user", prompt));
+  const pendingReply = createChatMessage("assistant", "", "sending");
+  chatMessages.push(pendingReply);
+  renderChatRiver();
+
+  window.clearTimeout(fakeChatReplyTimer);
+  fakeChatReplyTimer = window.setTimeout(() => {
+    pendingReply.content = buildFakeAssistantReply(prompt);
+    pendingReply.status = "done";
+    isChatWaitingForReply = false;
+    renderChatRiver();
+    document.getElementById(CHAT_INPUT_ID)?.focus();
+  }, 700);
 }
 
 function setTranscriptStatus(message) {
@@ -990,12 +1127,30 @@ async function loadTranscript(attempt = 0) {
 function setupSidebarActions() {
   const button = document.getElementById(PLAYER_CAPTURE_BUTTON_ID);
 
-  if (!button || button.dataset.initialized === "true") {
+  if (button && button.dataset.initialized !== "true") {
+    button.dataset.initialized = "true";
+    button.addEventListener("click", () => loadTranscriptFromPlayerCaptions(false));
+  }
+
+  const form = document.getElementById(CHAT_FORM_ID);
+  const input = document.getElementById(CHAT_INPUT_ID);
+
+  if (!form || form.dataset.initialized === "true") {
     return;
   }
 
-  button.dataset.initialized = "true";
-  button.addEventListener("click", () => loadTranscriptFromPlayerCaptions(false));
+  form.dataset.initialized = "true";
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitChatPrompt();
+  });
+
+  input?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      submitChatPrompt();
+    }
+  });
 }
 
 function isWatchPage() {
@@ -1005,6 +1160,7 @@ function isWatchPage() {
 function removeSidebar() {
   document.getElementById(SIDEBAR_ID)?.remove();
   window.clearInterval(captionRiverTimer);
+  window.clearTimeout(fakeChatReplyTimer);
 }
 
 function getRecommendationsColumn() {
@@ -1022,6 +1178,7 @@ function createSidebar() {
   if (document.getElementById(SIDEBAR_ID)) {
     updateSidebarTitle();
     setupSidebarActions();
+    renderChatRiver();
     setInitialTranscriptPrompt();
     return;
   }
@@ -1046,6 +1203,20 @@ function createSidebar() {
     <h2 class="yt-translator-sidebar__heading">Current Video</h2>
     <p id="${TITLE_ID}" class="yt-translator-sidebar__title"></p>
     <div class="yt-translator-sidebar__section">
+      <h3 class="yt-translator-sidebar__subheading">Ask</h3>
+      <div id="${CHAT_RIVER_ID}" class="yt-translator-chat-river"></div>
+      <form id="${CHAT_FORM_ID}" class="yt-translator-chat-form">
+        <textarea
+          id="${CHAT_INPUT_ID}"
+          class="yt-translator-chat-form__input"
+          rows="3"
+          maxlength="1200"
+          placeholder="Ask about the current phrase, tone, grammar, or slang..."
+        ></textarea>
+        <button id="${CHAT_SEND_BUTTON_ID}" class="yt-translator-chat-form__send" type="submit">Send</button>
+      </form>
+    </div>
+    <div class="yt-translator-sidebar__section">
       <h3 class="yt-translator-sidebar__subheading">Transcript</h3>
       <p id="${TRANSCRIPT_STATUS_ID}" class="yt-translator-sidebar__status">Loading transcript...</p>
       <button id="${PLAYER_CAPTURE_BUTTON_ID}" class="yt-translator-sidebar__button" type="button" hidden>
@@ -1061,6 +1232,7 @@ function createSidebar() {
 
   recommendationsColumn.prepend(sidebar);
   setupSidebarActions();
+  renderChatRiver();
   updateSidebarTitle();
   setInitialTranscriptPrompt();
 }
@@ -1075,8 +1247,11 @@ function handleNavigation() {
   activePlayerCaptionCaptureVideoId = null;
   currentTranscriptSegments = [];
   currentCaptionIndex = -1;
+  chatMessages = [];
+  isChatWaitingForReply = false;
   isCaptionRiverPausedForAd = false;
   window.clearInterval(captionRiverTimer);
+  window.clearTimeout(fakeChatReplyTimer);
   scheduleSidebarUpdate();
 }
 

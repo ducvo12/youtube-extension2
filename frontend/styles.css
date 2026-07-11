@@ -57,6 +57,129 @@
   line-height: 1.4;
 }
 
+.yt-translator-chat-river {
+  box-sizing: border-box;
+  height: 240px;
+  overflow: auto;
+  padding: 12px;
+  background: #0f1115;
+  border: 1px solid #2b3038;
+  border-radius: 8px;
+  color: #f1f3f5;
+}
+
+.yt-translator-chat__empty {
+  margin: 0;
+  color: #aab2bd;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.yt-translator-chat-message {
+  box-sizing: border-box;
+  max-width: 92%;
+  margin: 0 0 10px;
+  padding: 10px 11px;
+  border-radius: 8px;
+}
+
+.yt-translator-chat-message:last-child {
+  margin-bottom: 0;
+}
+
+.yt-translator-chat-message--user {
+  margin-left: auto;
+  background: #e8f2ff;
+  color: #101820;
+}
+
+.yt-translator-chat-message--assistant {
+  margin-right: auto;
+  background: #191d24;
+  border: 1px solid #303844;
+  color: #f2f5f8;
+}
+
+.yt-translator-chat-message__role {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.yt-translator-chat-message__content {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.yt-translator-chat-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: end;
+}
+
+.yt-translator-chat-form__input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 76px;
+  max-height: 150px;
+  resize: vertical;
+  padding: 10px 11px;
+  color: #f4f7fa;
+  background: #11151b;
+  border: 1px solid #303844;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.yt-translator-chat-form__input::placeholder {
+  color: #808995;
+}
+
+.yt-translator-chat-form__input:focus {
+  border-color: #78a8ff;
+  outline: 2px solid rgba(120, 168, 255, 0.25);
+}
+
+.yt-translator-chat-form__input:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.yt-translator-chat-form__send {
+  min-width: 68px;
+  min-height: 38px;
+  padding: 0 12px;
+  color: #061017;
+  background: #b7dcff;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.yt-translator-chat-form__send:hover {
+  background: #d3ebff;
+}
+
+.yt-translator-chat-form__send:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 .yt-translator-sidebar__button {
   width: 100%;
   margin: 0 0 12px;
