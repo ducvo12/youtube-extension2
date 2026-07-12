@@ -95,7 +95,40 @@ function sendTranscript(url, sendResponse) {
     });
 }
 
+function buildMockChatReply(payload) {
+  const message = typeof payload?.message === "string" ? payload.message.trim() : "";
+  const title = payload?.videoContext?.title || "this video";
+  const transcriptContext = payload?.videoContext?.transcriptContext;
+  const historyCount = Array.isArray(payload?.history) ? payload.history.length : 0;
+  const contextSentence = transcriptContext
+    ? ` I received nearby transcript context too: "${transcriptContext.slice(0, 180)}".`
+    : " I did not receive transcript context yet, so this is only based on your prompt.";
+
+  return `Mock background reply for "${message}" from ${title}.${contextSentence} Conversation messages sent: ${historyCount}.`;
+}
+
+function sendMockChatReply(payload, sendResponse) {
+  const message = typeof payload?.message === "string" ? payload.message.trim() : "";
+
+  if (!message) {
+    sendResponse({ ok: false, error: "Missing chat message" });
+    return;
+  }
+
+  setTimeout(() => {
+    sendResponse({
+      ok: true,
+      message: buildMockChatReply(payload),
+    });
+  }, 450);
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "CHAT_PROMPT") {
+    sendMockChatReply(message.payload, sendResponse);
+    return true;
+  }
+
   if (message?.type === "GET_CAPTION_TRACKS") {
     if (!message.videoId) {
       sendResponse({ ok: false, error: "Missing video ID" });

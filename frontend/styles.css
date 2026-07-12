@@ -100,6 +100,12 @@
   color: #f2f5f8;
 }
 
+.yt-translator-chat-message--error {
+  background: #2a171a;
+  border-color: #71313b;
+  color: #ffd9df;
+}
+
 .yt-translator-chat-message__role {
   margin: 0 0 4px;
   font-size: 10px;

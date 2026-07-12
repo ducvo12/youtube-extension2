@@ -13,9 +13,9 @@ const CAPTION_END_GRACE_MS = 500;
 const CAPTION_DISPLAY_SEGMENT_OFFSET = 0;
 let updateTimer = null;
 let captionRiverTimer = null;
-let fakeChatReplyTimer = null;
 let retryCount = 0;
 let activeTranscriptRequest = 0;
+let activeChatRequest = 0;
 let loadedTranscriptVideoId = null;
 let currentTranscriptSegments = [];
 let currentCaptionIndex = -1;
@@ -86,15 +86,6 @@ function getTranscriptContextPreview() {
     .join(" ");
 }
 
-function buildFakeAssistantReply(prompt) {
-  const transcriptContext = getTranscriptContextPreview();
-  const contextLine = transcriptContext
-    ? ` I can also use the nearby caption context: "${transcriptContext}"`
-    : " Once the transcript is loaded, I will be able to use the nearby captions too.";
-
-  return `Fake assistant reply for: "${prompt}".${contextLine}`;
-}
-
 function setChatControlsWaiting(isWaiting) {
   const input = document.getElementById(CHAT_INPUT_ID);
   const button = document.getElementById(CHAT_SEND_BUTTON_ID);
@@ -141,6 +132,10 @@ function renderChatRiver() {
     const messageNode = document.createElement("article");
     messageNode.className = `yt-translator-chat-message yt-translator-chat-message--${message.role}`;
 
+    if (message.status === "error") {
+      messageNode.classList.add("yt-translator-chat-message--error");
+    }
+
     const role = document.createElement("div");
     role.className = "yt-translator-chat-message__role";
     role.textContent = message.role === "user" ? "You" : "Assistant";
@@ -158,7 +153,45 @@ function renderChatRiver() {
   scrollChatRiverToBottom();
 }
 
-function submitChatPrompt() {
+function buildChatPayload(prompt) {
+  return {
+    message: prompt,
+    history: chatMessages
+      .filter((message) => message.status === "done")
+      .slice(-8)
+      .map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+    videoContext: {
+      videoId: getVideoId(),
+      title: getVideoTitle(),
+      transcriptContext: getTranscriptContextPreview(),
+    },
+  };
+}
+
+function sendChatPromptToBackground(payload) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ type: "CHAT_PROMPT", payload }, (response) => {
+      const runtimeError = chrome.runtime.lastError;
+
+      if (runtimeError) {
+        reject(new Error(runtimeError.message));
+        return;
+      }
+
+      if (!response?.ok) {
+        reject(new Error(response?.error || "Chat request failed"));
+        return;
+      }
+
+      resolve(response);
+    });
+  });
+}
+
+async function submitChatPrompt() {
   const input = document.getElementById(CHAT_INPUT_ID);
 
   if (!input || isChatWaitingForReply) {
@@ -177,16 +210,33 @@ function submitChatPrompt() {
   chatMessages.push(createChatMessage("user", prompt));
   const pendingReply = createChatMessage("assistant", "", "sending");
   chatMessages.push(pendingReply);
+  const requestId = activeChatRequest + 1;
+  activeChatRequest = requestId;
   renderChatRiver();
 
-  window.clearTimeout(fakeChatReplyTimer);
-  fakeChatReplyTimer = window.setTimeout(() => {
-    pendingReply.content = buildFakeAssistantReply(prompt);
+  try {
+    const response = await sendChatPromptToBackground(buildChatPayload(prompt));
+
+    if (requestId !== activeChatRequest) {
+      return;
+    }
+
+    pendingReply.content = response.message || "The assistant returned an empty response.";
     pendingReply.status = "done";
-    isChatWaitingForReply = false;
-    renderChatRiver();
-    document.getElementById(CHAT_INPUT_ID)?.focus();
-  }, 700);
+  } catch (error) {
+    if (requestId !== activeChatRequest) {
+      return;
+    }
+
+    pendingReply.content = `Unable to get a response: ${error.message}`;
+    pendingReply.status = "error";
+  } finally {
+    if (requestId === activeChatRequest) {
+      isChatWaitingForReply = false;
+      renderChatRiver();
+      document.getElementById(CHAT_INPUT_ID)?.focus();
+    }
+  }
 }
 
 function setTranscriptStatus(message) {
@@ -1160,7 +1210,6 @@ function isWatchPage() {
 function removeSidebar() {
   document.getElementById(SIDEBAR_ID)?.remove();
   window.clearInterval(captionRiverTimer);
-  window.clearTimeout(fakeChatReplyTimer);
 }
 
 function getRecommendationsColumn() {
@@ -1249,9 +1298,9 @@ function handleNavigation() {
   currentCaptionIndex = -1;
   chatMessages = [];
   isChatWaitingForReply = false;
+  activeChatRequest += 1;
   isCaptionRiverPausedForAd = false;
   window.clearInterval(captionRiverTimer);
-  window.clearTimeout(fakeChatReplyTimer);
   scheduleSidebarUpdate();
 }
 
