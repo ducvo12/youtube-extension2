@@ -1,3 +1,6 @@
+const BACKEND_CHAT_URL = "http://127.0.0.1:8000/api/chat";
+const CHAT_REQUEST_TIMEOUT_MS = 15000;
+
 function extractJsonObject(source, startIndex) {
   const firstBrace = source.indexOf("{", startIndex);
 
@@ -95,19 +98,7 @@ function sendTranscript(url, sendResponse) {
     });
 }
 
-function buildMockChatReply(payload) {
-  const message = typeof payload?.message === "string" ? payload.message.trim() : "";
-  const title = payload?.videoContext?.title || "this video";
-  const transcriptContext = payload?.videoContext?.transcriptContext;
-  const historyCount = Array.isArray(payload?.history) ? payload.history.length : 0;
-  const contextSentence = transcriptContext
-    ? ` I received nearby transcript context too: "${transcriptContext.slice(0, 180)}".`
-    : " I did not receive transcript context yet, so this is only based on your prompt.";
-
-  return `Mock background reply for "${message}" from ${title}.${contextSentence} Conversation messages sent: ${historyCount}.`;
-}
-
-function sendMockChatReply(payload, sendResponse) {
+function sendBackendChatReply(payload, sendResponse) {
   const message = typeof payload?.message === "string" ? payload.message.trim() : "";
 
   if (!message) {
@@ -115,17 +106,44 @@ function sendMockChatReply(payload, sendResponse) {
     return;
   }
 
-  setTimeout(() => {
-    sendResponse({
-      ok: true,
-      message: buildMockChatReply(payload),
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
+
+  fetch(BACKEND_CHAT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+    signal: controller.signal,
+  })
+    .then(async (response) => {
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(body.detail || `Backend chat request failed with ${response.status}`);
+      }
+
+      sendResponse({
+        ok: true,
+        message: body.message || "The backend returned an empty response.",
+      });
+    })
+    .catch((error) => {
+      const message = error.name === "AbortError"
+        ? "Backend chat request timed out"
+        : error.message;
+
+      sendResponse({ ok: false, error: message });
+    })
+    .finally(() => {
+      clearTimeout(timeout);
     });
-  }, 450);
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "CHAT_PROMPT") {
-    sendMockChatReply(message.payload, sendResponse);
+    sendBackendChatReply(message.payload, sendResponse);
     return true;
   }
 

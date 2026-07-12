@@ -14,6 +14,7 @@ pip install -r requirements.txt
 ## Run
 
 ```bash
+source .venv/bin/activate
 uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -22,6 +23,7 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 - `GET /` - service status and docs link
 - `GET /api/health` - health check with UTC timestamp
 - `GET /api/test/ping` - returns `pong`
+- `POST /api/chat` - placeholder chat response for the extension sidebar
 - `POST /api/test/echo` - echoes a JSON payload
 - `POST /api/test/explain` - placeholder contextual explanation response
 

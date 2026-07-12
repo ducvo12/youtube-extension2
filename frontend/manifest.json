@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "description": "Adds a clean sidebar to YouTube video pages with the current video title.",
   "host_permissions": [
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*",
     "https://youtube.com/*",
     "https://*.youtube.com/*",
     "https://www.youtube.com/*",
