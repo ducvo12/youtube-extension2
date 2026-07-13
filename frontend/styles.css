@@ -286,27 +286,6 @@
   opacity: 1;
 }
 
-.yt-translator-transcript {
-  box-sizing: border-box;
-  max-height: 300px;
-  overflow: auto;
-  padding: 12px;
-  background: #111111;
-  border: 1px solid #262626;
-  border-radius: 14px;
-}
-
-.yt-translator-transcript__line {
-  margin: 0 0 10px;
-  color: #eeeeee;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.yt-translator-transcript__line:last-child {
-  margin-bottom: 0;
-}
-
 @media (max-width: 900px) {
   #yt-translator-sidebar {
     margin-top: 12px;

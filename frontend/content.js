@@ -1,7 +1,6 @@
 const SIDEBAR_ID = "yt-translator-sidebar";
 const TITLE_ID = "yt-translator-video-title";
 const TRANSCRIPT_STATUS_ID = "yt-translator-transcript-status";
-const TRANSCRIPT_ID = "yt-translator-transcript";
 const CAPTION_RIVER_ID = "yt-translator-caption-river";
 const PLAYER_CAPTURE_BUTTON_ID = "yt-translator-player-capture-button";
 const CHAT_RIVER_ID = "yt-translator-chat-river";
@@ -298,12 +297,6 @@ function setInitialTranscriptPrompt() {
 
   currentTranscriptSegments = [];
   currentCaptionIndex = -1;
-  const transcriptNode = document.getElementById(TRANSCRIPT_ID);
-
-  if (transcriptNode) {
-    transcriptNode.textContent = "";
-  }
-
   renderCaptionRiver(-1);
 
   if (userAllowedCaptionCapture) {
@@ -412,7 +405,7 @@ function renderCaptionRiver(activeIndex) {
   riverNode.textContent = "";
 
   if (!currentTranscriptSegments.length) {
-    riverNode.textContent = "Caption river will appear after transcript loads.";
+    riverNode.textContent = "Current caption will appear after captions load.";
     currentCaptionIndex = -1;
     return;
   }
@@ -461,7 +454,7 @@ function updateCaptionRiver() {
     currentCaptionIndex = -1;
 
     if (currentTranscriptSegments.length) {
-      setTranscriptStatus(`${currentTranscriptSegments.length} transcript lines loaded.`);
+      setTranscriptStatus("Captions loaded.");
     }
   }
 
@@ -486,13 +479,6 @@ function startCaptionRiverUpdates() {
 }
 
 function renderTranscript(segments) {
-  const transcriptNode = document.getElementById(TRANSCRIPT_ID);
-
-  if (!transcriptNode) {
-    return;
-  }
-
-  transcriptNode.textContent = "";
   currentTranscriptSegments = segments;
   currentCaptionIndex = -1;
 
@@ -502,19 +488,9 @@ function renderTranscript(segments) {
     return;
   }
 
-  const fragment = document.createDocumentFragment();
-
-  for (const segment of segments) {
-    const line = document.createElement("p");
-    line.className = "yt-translator-transcript__line";
-    line.textContent = segment.text;
-    fragment.appendChild(line);
-  }
-
-  transcriptNode.appendChild(fragment);
   setPlayerCaptureButtonVisible(false);
   startCaptionRiverUpdates();
-  setTranscriptStatus(`${segments.length} transcript lines loaded.`);
+  setTranscriptStatus("Captions loaded.");
 }
 
 function extractJsonObject(source, startIndex) {
@@ -849,7 +825,7 @@ function ensurePageCaptionCapturerInjected() {
   return pageCaptionCapturerReady;
 }
 
-async function captureNextPlayerCaptionRequest(onCaptureStarted = () => {}) {
+async function captureNextPlayerCaptionRequest(onCaptureStarted = () => { }) {
   await ensurePageCaptionCapturerInjected();
 
   return new Promise((resolve, reject) => {
@@ -1283,8 +1259,17 @@ function createSidebar() {
   sidebar.id = SIDEBAR_ID;
   sidebar.innerHTML = `
     <div class="yt-translator-sidebar__eyebrow">Language Assistant</div>
-    <h2 class="yt-translator-sidebar__heading">Current Video</h2>
-    <p id="${TITLE_ID}" class="yt-translator-sidebar__title"></p>
+    <div class="yt-translator-sidebar__section">
+      <h3 class="yt-translator-sidebar__subheading">Current Caption</h3>
+      <p id="${TRANSCRIPT_STATUS_ID}" class="yt-translator-sidebar__status">Loading transcript...</p>
+      <button id="${PLAYER_CAPTURE_BUTTON_ID}" class="yt-translator-sidebar__button" type="button" hidden>
+        Load transcript by enabling captions briefly
+      </button>
+      <div class="yt-translator-caption-river-wrap">
+        <div class="yt-translator-sidebar__label">Now Playing</div>
+        <div id="${CAPTION_RIVER_ID}" class="yt-translator-caption-river">Current caption will appear after captions load.</div>
+      </div>
+    </div>
     <div class="yt-translator-sidebar__section">
       <h3 class="yt-translator-sidebar__subheading">Ask</h3>
       <div id="${CHAT_RIVER_ID}" class="yt-translator-chat-river"></div>
@@ -1298,18 +1283,6 @@ function createSidebar() {
         ></textarea>
         <button id="${CHAT_SEND_BUTTON_ID}" class="yt-translator-chat-form__send" type="submit">Send</button>
       </form>
-    </div>
-    <div class="yt-translator-sidebar__section">
-      <h3 class="yt-translator-sidebar__subheading">Transcript</h3>
-      <p id="${TRANSCRIPT_STATUS_ID}" class="yt-translator-sidebar__status">Loading transcript...</p>
-      <button id="${PLAYER_CAPTURE_BUTTON_ID}" class="yt-translator-sidebar__button" type="button" hidden>
-        Load transcript by enabling captions briefly
-      </button>
-      <div class="yt-translator-caption-river-wrap">
-        <div class="yt-translator-sidebar__label">Caption River</div>
-        <div id="${CAPTION_RIVER_ID}" class="yt-translator-caption-river">Caption river will appear after transcript loads.</div>
-      </div>
-      <div id="${TRANSCRIPT_ID}" class="yt-translator-transcript"></div>
     </div>
   `;
 
