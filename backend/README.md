@@ -9,7 +9,10 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
 ```
+
+Set `GEMINI_API_KEY` in `.env`. `GEMINI_MODEL` defaults to `gemini-3.5-flash`.
 
 ## Run
 
@@ -22,8 +25,9 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
 - `GET /` - service status and docs link
 - `GET /api/health` - health check with UTC timestamp
+- `GET /api/debug/config` - non-secret backend config diagnostics
 - `GET /api/test/ping` - returns `pong`
-- `POST /api/chat` - placeholder chat response for the extension sidebar
+- `POST /api/chat` - Gemini chat response for the extension sidebar
 - `POST /api/test/echo` - echoes a JSON payload
 - `POST /api/test/explain` - placeholder contextual explanation response
 

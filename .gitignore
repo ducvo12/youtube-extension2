@@ -20,6 +20,7 @@ yarn-error.log*
 __pycache__/
 *.py[cod]
 .venv/
+.env
 .pytest_cache/
 
 # Gemini/Antigravity specific

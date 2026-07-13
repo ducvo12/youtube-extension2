@@ -72,6 +72,25 @@ function createChatMessage(role, content, status = "done") {
   };
 }
 
+function createChatErrorDetailsNode(errorDetails) {
+  if (!errorDetails) {
+    return null;
+  }
+
+  const detailsNode = document.createElement("details");
+  detailsNode.className = "yt-translator-chat-message__details";
+
+  const summary = document.createElement("summary");
+  summary.textContent = "Error details";
+
+  const detailsText = document.createElement("pre");
+  detailsText.textContent = JSON.stringify(errorDetails, null, 2);
+
+  detailsNode.append(summary, detailsText);
+
+  return detailsNode;
+}
+
 function getTranscriptContextPreview() {
   if (!currentTranscriptSegments.length) {
     return "";
@@ -145,6 +164,15 @@ function renderChatRiver() {
     content.textContent = message.status === "sending" ? "Thinking..." : message.content;
 
     messageNode.append(role, content);
+
+    if (message.status === "error") {
+      const detailsNode = createChatErrorDetailsNode(message.errorDetails);
+
+      if (detailsNode) {
+        messageNode.appendChild(detailsNode);
+      }
+    }
+
     fragment.appendChild(messageNode);
   }
 
@@ -182,7 +210,9 @@ function sendChatPromptToBackground(payload) {
       }
 
       if (!response?.ok) {
-        reject(new Error(response?.error || "Chat request failed"));
+        const error = new Error(response?.error || "Chat request failed");
+        error.details = response?.errorDetails;
+        reject(error);
         return;
       }
 
@@ -229,6 +259,10 @@ async function submitChatPrompt() {
     }
 
     pendingReply.content = `Unable to get a response: ${error.message}`;
+    pendingReply.errorDetails = error.details || {
+      source: "content-script",
+      message: error.message,
+    };
     pendingReply.status = "error";
   } finally {
     if (requestId === activeChatRequest) {
