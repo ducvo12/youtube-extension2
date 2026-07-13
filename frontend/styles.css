@@ -254,34 +254,23 @@
 
 .yt-translator-caption-river {
   min-height: 92px;
-  color: #8f8f8f;
-  font-size: 12px;
-  line-height: 1.45;
+  color: #c2c2c2;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .yt-translator-caption-river__line {
-  margin: 0 0 7px;
-  color: #8f8f8f;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.yt-translator-caption-river__line:nth-last-child(4) {
-  opacity: 0.38;
-}
-
-.yt-translator-caption-river__line:nth-last-child(3) {
-  opacity: 0.52;
-}
-
-.yt-translator-caption-river__line:nth-last-child(2) {
-  opacity: 0.7;
+  margin: 0 0 8px;
+  color: #c2c2c2;
+  font-size: 14px;
+  line-height: 1.5;
+  opacity: 0.78;
 }
 
 .yt-translator-caption-river__line--active {
   margin-bottom: 0;
   color: #ffffff;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   opacity: 1;
 }
