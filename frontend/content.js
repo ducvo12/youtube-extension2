@@ -1,17 +1,3 @@
-function getVideoTitle() {
-  const titleElement = document.querySelector("h1.ytd-watch-metadata yt-formatted-string")
-    || document.querySelector("h1.ytd-watch-metadata")
-    || document.querySelector("h1.title");
-
-  const title = titleElement?.textContent?.trim();
-
-  if (title) {
-    return title;
-  }
-
-  return document.title.replace(/ - YouTube$/, "").trim() || "Untitled video";
-}
-
 function updateSidebarTitle() {
   const titleNode = document.getElementById(TITLE_ID);
 
@@ -20,10 +6,6 @@ function updateSidebarTitle() {
   }
 
   titleNode.textContent = getVideoTitle();
-}
-
-function getVideoId() {
-  return new URLSearchParams(window.location.search).get("v");
 }
 
 function createChatMessage(role, content, status = "done") {
@@ -310,36 +292,6 @@ function setInitialTranscriptPrompt() {
   setPlayerCaptureButtonVisible(true);
 }
 
-function getVideoElement() {
-  return document.querySelector("video.html5-main-video") || document.querySelector("video");
-}
-
-function getPlaybackTimeMs() {
-  const player = document.getElementById("movie_player");
-  const playerTime = player?.getCurrentTime?.();
-
-  if (Number.isFinite(playerTime)) {
-    return playerTime * 1000;
-  }
-
-  const video = getVideoElement();
-
-  if (!video) {
-    return null;
-  }
-
-  return video.currentTime * 1000;
-}
-
-function isAdShowing() {
-  const player = document.getElementById("movie_player");
-
-  return Boolean(player?.classList.contains("ad-showing")
-    || player?.classList.contains("ad-interrupting")
-    || document.querySelector(".ytp-ad-player-overlay")
-    || document.querySelector(".ytp-ad-text"));
-}
-
 function getActiveCaptionIndex(currentTimeMs) {
   if (!currentTranscriptSegments.length) {
     return -1;
@@ -573,88 +525,6 @@ function renderTranscript(segments) {
   setPlayerCaptureButtonVisible(false);
   startCaptionRiverUpdates();
   setTranscriptStatus("Captions loaded.");
-}
-
-function extractJsonObject(source, startIndex) {
-  const firstBrace = source.indexOf("{", startIndex);
-
-  if (firstBrace === -1) {
-    return null;
-  }
-
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-
-  for (let index = firstBrace; index < source.length; index += 1) {
-    const character = source[index];
-
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (character === "\\") {
-        escaped = true;
-      } else if (character === '"') {
-        inString = false;
-      }
-
-      continue;
-    }
-
-    if (character === '"') {
-      inString = true;
-    } else if (character === "{") {
-      depth += 1;
-    } else if (character === "}") {
-      depth -= 1;
-
-      if (depth === 0) {
-        return source.slice(firstBrace, index + 1);
-      }
-    }
-  }
-
-  return null;
-}
-
-function getPlayerResponseFromScripts() {
-  for (const script of document.scripts) {
-    const text = script.textContent || "";
-    const markerIndex = text.indexOf("ytInitialPlayerResponse");
-
-    if (markerIndex === -1) {
-      continue;
-    }
-
-    const json = extractJsonObject(text, markerIndex);
-
-    if (!json) {
-      continue;
-    }
-
-    try {
-      return JSON.parse(json);
-    } catch (error) {
-      console.warn("Unable to parse YouTube player response", error);
-    }
-  }
-
-  return null;
-}
-
-function getPlayerResponseFromDom() {
-  const watchFlexy = document.querySelector("ytd-watch-flexy");
-
-  return watchFlexy?.playerResponse
-    || watchFlexy?.playerData?.playerResponse
-    || document.querySelector("ytd-app")?.data?.playerResponse
-    || null;
-}
-
-function getCaptionTracksFromPage() {
-  const playerResponse = getPlayerResponseFromDom() || getPlayerResponseFromScripts();
-
-  return playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
 }
 
 function getCaptionTracksFromBackground(videoId) {
@@ -1189,19 +1059,9 @@ function setupSidebarActions() {
   });
 }
 
-function isWatchPage() {
-  return window.location.pathname === "/watch";
-}
-
 function removeSidebar() {
   document.getElementById(SIDEBAR_ID)?.remove();
   window.clearInterval(captionRiverTimer);
-}
-
-function getRecommendationsColumn() {
-  return document.querySelector("ytd-watch-flexy #secondary-inner")
-    || document.querySelector("#secondary-inner")
-    || document.querySelector("#secondary");
 }
 
 function createSidebar() {
