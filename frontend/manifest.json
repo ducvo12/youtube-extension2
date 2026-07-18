@@ -24,7 +24,11 @@
     {
       "matches": ["https://www.youtube.com/*"],
       "css": ["styles.css"],
-      "js": ["content.js"],
+      "js": [
+        "content/constants.js",
+        "content/state.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]

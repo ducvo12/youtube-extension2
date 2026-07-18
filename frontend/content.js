@@ -1,39 +1,3 @@
-const SIDEBAR_ID = "yt-translator-sidebar";
-const TITLE_ID = "yt-translator-video-title";
-const TRANSCRIPT_STATUS_ID = "yt-translator-transcript-status";
-const CAPTION_RIVER_ID = "yt-translator-caption-river";
-const PLAYER_CAPTURE_BUTTON_ID = "yt-translator-player-capture-button";
-const CHAT_RIVER_ID = "yt-translator-chat-river";
-const CHAT_FORM_ID = "yt-translator-chat-form";
-const CHAT_INPUT_ID = "yt-translator-chat-input";
-const CHAT_SEND_BUTTON_ID = "yt-translator-chat-send";
-const SELECTED_CAPTION_ID = "yt-translator-selected-caption";
-const CAPTION_START_LEAD_MS = 0;
-const CAPTION_END_GRACE_MS = 500;
-const CAPTION_DISPLAY_SEGMENT_OFFSET = 0;
-let updateTimer = null;
-let captionRiverTimer = null;
-let retryCount = 0;
-let activeTranscriptRequest = 0;
-let activeChatRequest = 0;
-let loadedTranscriptVideoId = null;
-let currentTranscriptSegments = [];
-let currentCaptionIndex = -1;
-let chatMessages = [];
-let chatMessageCounter = 0;
-let isChatWaitingForReply = false;
-let selectedCaptionText = "";
-let isSnappingCaptionSelection = false;
-let isCaptionRiverPausedForAd = false;
-let userAllowedCaptionCapture = false;
-let activePlayerCaptionCaptureVideoId = null;
-let pageFetcherInjected = false;
-let pageFetcherReady = null;
-let pageFetchRequestId = 0;
-let pageCaptionCapturerInjected = false;
-let pageCaptionCapturerReady = null;
-let playerCaptionCaptureRequestId = 0;
-
 function getVideoTitle() {
   const titleElement = document.querySelector("h1.ytd-watch-metadata yt-formatted-string")
     || document.querySelector("h1.ytd-watch-metadata")
@@ -176,10 +140,6 @@ function renderChatRiver() {
   river.textContent = "";
 
   if (!chatMessages.length) {
-    const emptyState = document.createElement("p");
-    emptyState.className = "yt-translator-chat__empty";
-    emptyState.textContent = "Ask about a phrase, idiom, grammar pattern, or anything confusing in the video.";
-    river.appendChild(emptyState);
     setChatControlsWaiting(isChatWaitingForReply);
     return;
   }
@@ -1399,11 +1359,11 @@ function createSidebar() {
         <div class="yt-translator-sidebar__label">Now Playing</div>
         <div id="${CAPTION_RIVER_ID}" class="yt-translator-caption-river">Current caption will appear after captions load.</div>
       </div>
+      <div id="${SELECTED_CAPTION_ID}" class="yt-translator-selected-caption" hidden></div>
     </div>
     <div class="yt-translator-sidebar__section">
       <h3 class="yt-translator-sidebar__subheading">Ask</h3>
       <div id="${CHAT_RIVER_ID}" class="yt-translator-chat-river"></div>
-      <div id="${SELECTED_CAPTION_ID}" class="yt-translator-selected-caption" hidden></div>
       <form id="${CHAT_FORM_ID}" class="yt-translator-chat-form">
         <textarea
           id="${CHAT_INPUT_ID}"

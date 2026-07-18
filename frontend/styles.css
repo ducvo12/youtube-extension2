@@ -68,13 +68,6 @@
   color: #f1f3f5;
 }
 
-.yt-translator-chat__empty {
-  margin: 0;
-  color: #aab2bd;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
 .yt-translator-chat-message {
   box-sizing: border-box;
   max-width: 92%;
