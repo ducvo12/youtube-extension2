@@ -27,6 +27,7 @@
       "js": [
         "content/constants.js",
         "content/state.js",
+        "content/transcript-parser.js",
         "content.js"
       ],
       "run_at": "document_idle"
