@@ -18,7 +18,8 @@ function getVideoId() {
   return new URLSearchParams(window.location.search).get("v");
 }
 
-// Finds the main YouTube video element used for playback time fallback.
+// Internal helper for getPlaybackTimeMs.
+// Finds the main YouTube video element.
 function getVideoElement() {
   return document.querySelector("video.html5-main-video") || document.querySelector("video");
 }
@@ -51,7 +52,8 @@ function isAdShowing() {
     || document.querySelector(".ytp-ad-text"));
 }
 
-// Extracts a balanced JSON object string from embedded YouTube page JavaScript.
+// Internal helper for getPlayerResponseFromScripts.
+// Extracts a balanced JSON object string.
 function extractJsonObject(source, startIndex) {
   const firstBrace = source.indexOf("{", startIndex);
 
@@ -94,7 +96,8 @@ function extractJsonObject(source, startIndex) {
   return null;
 }
 
-// Finds and parses ytInitialPlayerResponse from inline YouTube script tags.
+// Internal helper for getCaptionTracksFromPage.
+// Parses ytInitialPlayerResponse from scripts.
 function getPlayerResponseFromScripts() {
   for (const script of document.scripts) {
     const text = script.textContent || "";
@@ -120,7 +123,8 @@ function getPlayerResponseFromScripts() {
   return null;
 }
 
-// Reads YouTube's player response from Polymer-backed DOM properties when available.
+// Internal helper for getCaptionTracksFromPage.
+// Reads YouTube's player response from DOM properties.
 function getPlayerResponseFromDom() {
   const watchFlexy = document.querySelector("ytd-watch-flexy");
 
