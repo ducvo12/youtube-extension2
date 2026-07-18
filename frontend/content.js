@@ -7,6 +7,7 @@ const CHAT_RIVER_ID = "yt-translator-chat-river";
 const CHAT_FORM_ID = "yt-translator-chat-form";
 const CHAT_INPUT_ID = "yt-translator-chat-input";
 const CHAT_SEND_BUTTON_ID = "yt-translator-chat-send";
+const SELECTED_CAPTION_ID = "yt-translator-selected-caption";
 const CAPTION_START_LEAD_MS = 0;
 const CAPTION_END_GRACE_MS = 500;
 const CAPTION_DISPLAY_SEGMENT_OFFSET = 0;
@@ -21,6 +22,8 @@ let currentCaptionIndex = -1;
 let chatMessages = [];
 let chatMessageCounter = 0;
 let isChatWaitingForReply = false;
+let selectedCaptionText = "";
+let isSnappingCaptionSelection = false;
 let isCaptionRiverPausedForAd = false;
 let userAllowedCaptionCapture = false;
 let activePlayerCaptionCaptureVideoId = null;
@@ -126,6 +129,43 @@ function scrollChatRiverToBottom() {
   }
 }
 
+function renderSelectedCaptionContext() {
+  const contextNode = document.getElementById(SELECTED_CAPTION_ID);
+
+  if (!contextNode) {
+    return;
+  }
+
+  contextNode.textContent = "";
+  contextNode.hidden = !selectedCaptionText;
+
+  if (!selectedCaptionText) {
+    return;
+  }
+
+  const label = document.createElement("span");
+  label.className = "yt-translator-selected-caption__label";
+  label.textContent = "Selected";
+
+  const text = document.createElement("span");
+  text.className = "yt-translator-selected-caption__text";
+  text.textContent = selectedCaptionText;
+
+  const clearButton = document.createElement("button");
+  clearButton.className = "yt-translator-selected-caption__clear";
+  clearButton.type = "button";
+  clearButton.textContent = "x";
+  clearButton.setAttribute("aria-label", "Clear selected caption text");
+  clearButton.addEventListener("click", () => {
+    selectedCaptionText = "";
+    window.getSelection()?.removeAllRanges();
+    renderSelectedCaptionContext();
+    document.getElementById(CHAT_INPUT_ID)?.focus();
+  });
+
+  contextNode.append(label, text, clearButton);
+}
+
 function renderChatRiver() {
   const river = document.getElementById(CHAT_RIVER_ID);
 
@@ -194,6 +234,7 @@ function buildChatPayload(prompt) {
       videoId: getVideoId(),
       title: getVideoTitle(),
       transcriptContext: getTranscriptContextPreview(),
+      selectedCaptionText: selectedCaptionText || null,
     },
   };
 }
@@ -395,6 +436,87 @@ function getDisplayCaptionIndex(activeIndex) {
   return clampCaptionIndex(activeIndex + CAPTION_DISPLAY_SEGMENT_OFFSET);
 }
 
+function getCaptionWordSegments(text) {
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: "word" });
+
+    return Array.from(segmenter.segment(text)).map((segment) => ({
+      text: segment.segment,
+      isWordLike: segment.isWordLike,
+    }));
+  }
+
+  return text.match(/\s+|\S+/g)?.map((segment) => ({
+    text: segment,
+    isWordLike: !/^\s+$/.test(segment),
+  })) || [];
+}
+
+function appendCaptionText(line, text, segmentIndex) {
+  const segments = getCaptionWordSegments(text);
+  let wordIndex = 0;
+
+  for (const segment of segments) {
+    if (!segment.isWordLike) {
+      line.appendChild(document.createTextNode(segment.text));
+      continue;
+    }
+
+    const word = document.createElement("span");
+    word.className = "yt-translator-caption-word";
+    word.dataset.captionSegmentIndex = String(segmentIndex);
+    word.dataset.captionWordIndex = String(wordIndex);
+    word.textContent = segment.text;
+    line.appendChild(word);
+    wordIndex += 1;
+  }
+}
+
+function snapCaptionSelectionToWords() {
+  if (isSnappingCaptionSelection) {
+    return;
+  }
+
+  const riverNode = document.getElementById(CAPTION_RIVER_ID);
+  const selection = window.getSelection();
+
+  if (!riverNode || !selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    return;
+  }
+
+  const selectionRange = selection.getRangeAt(0);
+  const selectionTouchesCaptionRiver = riverNode.contains(selectionRange.commonAncestorContainer)
+    || riverNode.contains(selection.anchorNode)
+    || riverNode.contains(selection.focusNode);
+
+  if (!selectionTouchesCaptionRiver) {
+    return;
+  }
+
+  const words = Array.from(riverNode.querySelectorAll(".yt-translator-caption-word"));
+  const selectedWords = words.filter((word) => selection.containsNode(word, true));
+
+  if (!selectedWords.length) {
+    return;
+  }
+
+  const snappedRange = document.createRange();
+  snappedRange.setStartBefore(selectedWords[0]);
+  snappedRange.setEndAfter(selectedWords[selectedWords.length - 1]);
+
+  isSnappingCaptionSelection = true;
+  selection.removeAllRanges();
+  selection.addRange(snappedRange);
+  isSnappingCaptionSelection = false;
+
+  selectedCaptionText = snappedRange.toString().replace(/\s+/g, " ").trim();
+  renderSelectedCaptionContext();
+}
+
+function scheduleCaptionSelectionSnap() {
+  window.setTimeout(snapCaptionSelectionToWords, 0);
+}
+
 function renderCaptionRiver(activeIndex) {
   const riverNode = document.getElementById(CAPTION_RIVER_ID);
 
@@ -424,7 +546,7 @@ function renderCaptionRiver(activeIndex) {
     line.className = index === activeIndex
       ? "yt-translator-caption-river__line yt-translator-caption-river__line--active"
       : "yt-translator-caption-river__line";
-    line.textContent = currentTranscriptSegments[index].text;
+    appendCaptionText(line, currentTranscriptSegments[index].text, index);
     fragment.appendChild(line);
   }
 
@@ -1192,6 +1314,13 @@ function setupSidebarActions() {
     button.addEventListener("click", () => loadTranscriptFromPlayerCaptions(false));
   }
 
+  if (document.documentElement.dataset.ytTranslatorCaptionSelectionInitialized !== "true") {
+    document.documentElement.dataset.ytTranslatorCaptionSelectionInitialized = "true";
+    document.addEventListener("mouseup", scheduleCaptionSelectionSnap);
+    document.addEventListener("touchend", scheduleCaptionSelectionSnap);
+    document.addEventListener("keyup", scheduleCaptionSelectionSnap);
+  }
+
   const form = document.getElementById(CHAT_FORM_ID);
   const input = document.getElementById(CHAT_INPUT_ID);
 
@@ -1238,6 +1367,7 @@ function createSidebar() {
     updateSidebarTitle();
     setupSidebarActions();
     renderChatRiver();
+    renderSelectedCaptionContext();
     setInitialTranscriptPrompt();
     return;
   }
@@ -1273,6 +1403,7 @@ function createSidebar() {
     <div class="yt-translator-sidebar__section">
       <h3 class="yt-translator-sidebar__subheading">Ask</h3>
       <div id="${CHAT_RIVER_ID}" class="yt-translator-chat-river"></div>
+      <div id="${SELECTED_CAPTION_ID}" class="yt-translator-selected-caption" hidden></div>
       <form id="${CHAT_FORM_ID}" class="yt-translator-chat-form">
         <textarea
           id="${CHAT_INPUT_ID}"
@@ -1289,6 +1420,7 @@ function createSidebar() {
   recommendationsColumn.prepend(sidebar);
   setupSidebarActions();
   renderChatRiver();
+  renderSelectedCaptionContext();
   updateSidebarTitle();
   setInitialTranscriptPrompt();
 }
@@ -1304,6 +1436,7 @@ function handleNavigation() {
   currentTranscriptSegments = [];
   currentCaptionIndex = -1;
   chatMessages = [];
+  selectedCaptionText = "";
   isChatWaitingForReply = false;
   activeChatRequest += 1;
   isCaptionRiverPausedForAd = false;

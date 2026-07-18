@@ -66,6 +66,7 @@ class VideoContext(BaseModel):
     video_id: str | None = Field(default=None, max_length=128)
     title: str | None = Field(default=None, max_length=300)
     transcript_context: str | None = Field(default=None, max_length=4000)
+    selected_caption_text: str | None = Field(default=None, max_length=1200)
 
     @model_validator(mode="before")
     @classmethod
@@ -80,6 +81,9 @@ class VideoContext(BaseModel):
 
         if "transcriptContext" in normalized and "transcript_context" not in normalized:
             normalized["transcript_context"] = normalized.pop("transcriptContext")
+
+        if "selectedCaptionText" in normalized and "selected_caption_text" not in normalized:
+            normalized["selected_caption_text"] = normalized.pop("selectedCaptionText")
 
         return normalized
 
@@ -171,6 +175,11 @@ def build_chat_prompt(payload: ChatRequest) -> str:
         if payload.video_context
         else None
     )
+    selected_caption_text = (
+        payload.video_context.selected_caption_text
+        if payload.video_context
+        else None
+    )
 
     return f"""
 You are a contextual language-learning assistant embedded in a YouTube sidebar.
@@ -178,12 +187,16 @@ You are a contextual language-learning assistant embedded in a YouTube sidebar.
 Help intermediate-to-advanced language learners understand native video content.
 Prioritize meaning in context, tone/register, idioms, slang, grammar patterns, and natural usage.
 Avoid word-for-word translation unless it is useful. Keep the answer concise and practical.
+When selected caption text is provided, treat it as the specific phrase the user is asking about.
 
 Video title:
 {video_title or "Unknown"}
 
 Nearby transcript context:
 {transcript_context or "No transcript context is available yet."}
+
+Selected caption text:
+{selected_caption_text or "No caption text is selected."}
 
 Recent chat history:
 {format_chat_history(payload.history)}
