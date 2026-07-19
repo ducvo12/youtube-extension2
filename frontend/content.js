@@ -175,7 +175,7 @@ function snapCaptionSelectionToWords() {
   isSnappingCaptionSelection = false;
 
   selectedCaptionText = snappedRange.toString().replace(/\s+/g, " ").trim();
-  renderSelectedCaptionContext();
+  renderSelectedCaptionPill();
 }
 
 function scheduleCaptionSelectionSnap() {
@@ -827,7 +827,7 @@ function createSidebar() {
     updateSidebarTitle();
     setupSidebarActions();
     renderChatRiver();
-    renderSelectedCaptionContext();
+    renderSelectedCaptionPill();
     setInitialTranscriptPrompt();
     return;
   }
@@ -880,7 +880,7 @@ function createSidebar() {
   recommendationsColumn.prepend(sidebar);
   setupSidebarActions();
   renderChatRiver();
-  renderSelectedCaptionContext();
+  renderSelectedCaptionPill();
   updateSidebarTitle();
   setInitialTranscriptPrompt();
 }

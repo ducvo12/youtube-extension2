@@ -78,7 +78,7 @@ function scrollChatRiverToBottom() {
 // Called externally by content.js.
 // Renders the selected caption pill shown above the chat input.
 // Gets called when user highlights captions in caption river (highlight state changes)
-function renderSelectedCaptionContext() {
+function renderSelectedCaptionPill() {
   const contextNode = document.getElementById(SELECTED_CAPTION_ID);
 
   if (!contextNode) {
@@ -111,7 +111,7 @@ function renderSelectedCaptionContext() {
   clearButton.addEventListener("click", () => {
     selectedCaptionText = "";
     window.getSelection()?.removeAllRanges();
-    renderSelectedCaptionContext();
+    renderSelectedCaptionPill();
     document.getElementById(CHAT_INPUT_ID)?.focus();
   });
 
