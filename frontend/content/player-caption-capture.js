@@ -1,3 +1,43 @@
+/*
+ * Player-caption capture flow.
+ *
+ * This module owns the extension's active caption retrieval path. Instead of
+ * building transcript URLs directly, it briefly toggles YouTube's own captions
+ * control and captures the caption network response made by the player. That
+ * captured response already contains the request details YouTube requires.
+ *
+ * Public entry point:
+ *
+ *   loadTranscriptFromPlayerCaptions()
+ *
+ * That function is called by sidebar.js when the user clicks the transcript
+ * load button, or automatically after the user has already allowed caption
+ * capture on a previous video. content.js does not call it directly; content.js
+ * bootstraps the extension, while sidebar.js wires the UI to this module.
+ *
+ * Function interaction:
+ *
+ *   loadTranscriptFromPlayerCaptions()
+ *     -> getVideoId() to identify the current YouTube video
+ *     -> getCaptionButton() and isCaptionButtonEnabled() to inspect the player
+ *     -> captureNextPlayerCaptionRequest() to wait for the next caption response
+ *       -> ensurePageCaptionCapturerInjected() to inject page-caption-capturer.js
+ *       -> postMessage("START_PLAYER_CAPTION_CAPTURE") to arm the page capturer
+ *       -> triggerPlayerCaptionLoad() when capture starts
+ *         -> getCaptionButton() to find YouTube's captions button
+ *         -> wait() between player-control clicks when needed
+ *     -> parseTranscriptBodyAuto() to normalize the captured caption body
+ *     -> renderTranscript() to hand parsed segments to the caption river
+ *     -> restorePlayerCaptionState() in finally so captions return to their
+ *        original enabled/disabled state
+ *
+ * The end result is that sidebar.js can call one high-level function and receive
+ * the full behavior: capture YouTube's player transcript request, parse the
+ * response, render captions, surface errors, and restore the player UI.
+ */
+
+// Internal helper for captureNextPlayerCaptionRequest.
+// Injects the page-context script that observes YouTube caption network requests.
 function ensurePageCaptionCapturerInjected() {
   if (pageCaptionCapturerReady) {
     return pageCaptionCapturerReady;
@@ -30,6 +70,8 @@ function ensurePageCaptionCapturerInjected() {
   return pageCaptionCapturerReady;
 }
 
+// Internal helper for loadTranscriptFromPlayerCaptions.
+// Starts a one-shot capture and resolves with the next caption response body.
 async function captureNextPlayerCaptionRequest(onCaptureStarted = () => { }) {
   await ensurePageCaptionCapturerInjected();
 
@@ -112,20 +154,28 @@ async function captureNextPlayerCaptionRequest(onCaptureStarted = () => { }) {
   });
 }
 
+// Internal helper for triggerPlayerCaptionLoad, restorePlayerCaptionState, and loadTranscriptFromPlayerCaptions.
+// Finds YouTube's captions toggle button in the player controls.
 function getCaptionButton() {
   return document.querySelector(".ytp-subtitles-button")
     || document.querySelector("button[aria-keyshortcuts='c']");
 }
 
+// Internal helper for restorePlayerCaptionState and loadTranscriptFromPlayerCaptions.
+// Checks whether YouTube captions are currently enabled.
 function isCaptionButtonEnabled(button) {
   return button?.getAttribute("aria-pressed") === "true"
     || button?.classList.contains("ytp-button-active");
 }
 
+// Internal helper for triggerPlayerCaptionLoad and restorePlayerCaptionState.
+// Waits for a short delay between YouTube player control interactions.
 function wait(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+// Internal helper for loadTranscriptFromPlayerCaptions.
+// Toggles captions to make YouTube issue a caption request that can be captured.
 async function triggerPlayerCaptionLoad(wasEnabled) {
   const button = getCaptionButton();
 
@@ -141,6 +191,8 @@ async function triggerPlayerCaptionLoad(wasEnabled) {
   button.click();
 }
 
+// Internal helper for loadTranscriptFromPlayerCaptions.
+// Restores the YouTube captions button to its original enabled/disabled state.
 async function restorePlayerCaptionState(wasEnabled) {
   const button = getCaptionButton();
 
@@ -155,6 +207,8 @@ async function restorePlayerCaptionState(wasEnabled) {
   }
 }
 
+// Called externally by sidebar.js.
+// Captures YouTube player's caption response, parses it, and renders transcript segments.
 async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0) {
   const videoId = getVideoId();
 
