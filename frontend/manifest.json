@@ -30,6 +30,7 @@
         "content/transcript-parser.js",
         "content/youtube-page.js",
         "content/chat.js",
+        "content/caption-river.js",
         "content.js"
       ],
       "run_at": "document_idle"
