@@ -16,7 +16,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["page-fetcher.js", "page-caption-capturer.js"],
+      "resources": ["page-caption-capturer.js"],
       "matches": ["https://www.youtube.com/*"]
     }
   ],
@@ -31,6 +31,7 @@
         "content/youtube-page.js",
         "content/chat.js",
         "content/caption-river.js",
+        "content/player-caption-capture.js",
         "content.js"
       ],
       "run_at": "document_idle"

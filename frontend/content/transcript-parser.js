@@ -11,8 +11,8 @@
  *     text: string
  *   }
  *
- * After parsing, transcript-loader code passes those segments to the caption
- * river renderer, chat context builder, and active-caption lookup logic.
+ * After parsing, player-caption capture code passes those segments to the
+ * caption river renderer, chat context builder, and active-caption lookup logic.
  */
 
 // Converts YouTube json3 event objects into the extension's transcript segment shape.
