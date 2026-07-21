@@ -32,6 +32,8 @@
         "content/chat.js",
         "content/caption-river.js",
         "content/player-caption-capture.js",
+        "content/sidebar.js",
+        "content/lifecycle.js",
         "content.js"
       ],
       "run_at": "document_idle"
