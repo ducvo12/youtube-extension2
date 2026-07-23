@@ -30,6 +30,7 @@
         "content/transcript-parser.js",
         "content/youtube-page.js",
         "content/chat.js",
+        "content/translate.js",
         "content/caption-river.js",
         "content/player-caption-capture.js",
         "content/sidebar.js",

@@ -261,6 +261,128 @@
   opacity: 0.68;
 }
 
+.yt-translator-translate-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.yt-translator-translate-form__input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 70px;
+  max-height: 140px;
+  resize: vertical;
+  padding: 10px 11px;
+  color: #f4f7fa;
+  background: #11151b;
+  border: 1px solid #303844;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.yt-translator-translate-form__input::placeholder {
+  color: #808995;
+}
+
+.yt-translator-translate-form__input:focus {
+  border-color: #78a8ff;
+  outline: 2px solid rgba(120, 168, 255, 0.25);
+}
+
+.yt-translator-translate-form__input:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.yt-translator-translate-form__send {
+  min-width: 82px;
+  min-height: 38px;
+  padding: 0 12px;
+  color: #061017;
+  background: #b7dcff;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.yt-translator-translate-form__send:hover {
+  background: #d3ebff;
+}
+
+.yt-translator-translate-form__send:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.yt-translator-translate-result {
+  margin-top: 10px;
+  padding: 10px 11px;
+  color: #f2f5f8;
+  background: #191d24;
+  border: 1px solid #303844;
+  border-radius: 8px;
+}
+
+.yt-translator-translate-result[hidden] {
+  display: none;
+}
+
+.yt-translator-translate-result--error {
+  color: #ffd9df;
+  background: #2a171a;
+  border-color: #71313b;
+}
+
+.yt-translator-translate-result__label {
+  margin: 0 0 4px;
+  color: #9eb6d0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.yt-translator-translate-result__text {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.yt-translator-translate-result__details {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.yt-translator-translate-result__details summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.yt-translator-translate-result__details pre {
+  max-height: 180px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 8px;
+  color: #ffecef;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 217, 223, 0.22);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .yt-translator-sidebar__button {
   width: 100%;
   margin: 0 0 12px;

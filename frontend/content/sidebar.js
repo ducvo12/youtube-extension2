@@ -73,22 +73,30 @@ function setupSidebarActions() {
   const form = document.getElementById(CHAT_FORM_ID);
   const input = document.getElementById(CHAT_INPUT_ID);
 
-  if (!form || form.dataset.initialized === "true") {
-    return;
-  }
-
-  form.dataset.initialized = "true";
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    submitChatPrompt();
-  });
-
-  input?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+  if (form && form.dataset.initialized !== "true") {
+    form.dataset.initialized = "true";
+    form.addEventListener("submit", (event) => {
       event.preventDefault();
       submitChatPrompt();
-    }
-  });
+    });
+
+    input?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        submitChatPrompt();
+      }
+    });
+  }
+
+  const translateForm = document.getElementById(TRANSLATE_FORM_ID);
+
+  if (translateForm && translateForm.dataset.initialized !== "true") {
+    translateForm.dataset.initialized = "true";
+    translateForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitTranslatePrompt();
+    });
+  }
 }
 
 // Internal helper for createSidebar.
@@ -111,6 +119,7 @@ function createSidebar() {
     setupSidebarActions();
     renderChatRiver();
     renderSelectedCaptionPill();
+    renderTranslateBox();
     setInitialTranscriptPrompt();
     return;
   }
@@ -158,12 +167,27 @@ function createSidebar() {
         <button id="${CHAT_SEND_BUTTON_ID}" class="yt-translator-chat-form__send" type="submit">Send</button>
       </form>
     </div>
+    <div class="yt-translator-sidebar__section">
+      <h3 class="yt-translator-sidebar__subheading">Quick Translate</h3>
+      <form id="${TRANSLATE_FORM_ID}" class="yt-translator-translate-form">
+        <textarea
+          id="${TRANSLATE_INPUT_ID}"
+          class="yt-translator-translate-form__input"
+          rows="3"
+          maxlength="1000"
+          placeholder="Paste text to translate..."
+        ></textarea>
+        <button id="${TRANSLATE_BUTTON_ID}" class="yt-translator-translate-form__send" type="submit">Translate</button>
+      </form>
+      <div id="${TRANSLATE_RESULT_ID}" class="yt-translator-translate-result" hidden></div>
+    </div>
   `;
 
   recommendationsColumn.prepend(sidebar);
   setupSidebarActions();
   renderChatRiver();
   renderSelectedCaptionPill();
+  renderTranslateBox();
   updateSidebarTitle();
   setInitialTranscriptPrompt();
 }

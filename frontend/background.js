@@ -1,18 +1,20 @@
 const BACKEND_CHAT_URL = "http://127.0.0.1:8000/api/chat";
+const BACKEND_TRANSLATE_URL = "http://127.0.0.1:8000/api/translate";
 const CHAT_REQUEST_TIMEOUT_MS = 15000;
+const TRANSLATE_REQUEST_TIMEOUT_MS = 10000;
 
-function getBackendError(response, body, rawBody) {
+function getBackendError(response, body, rawBody, backendUrl, requestLabel) {
   const detail = body?.detail;
   const baseDetails = {
     source: "fastapi",
     status: response.status,
     statusText: response.statusText,
-    backendUrl: BACKEND_CHAT_URL,
+    backendUrl,
   };
 
   if (detail && typeof detail === "object" && !Array.isArray(detail)) {
     return {
-      message: detail.message || `Backend chat request failed with ${response.status}`,
+      message: detail.message || `Backend ${requestLabel} request failed with ${response.status}`,
       details: {
         ...baseDetails,
         code: detail.code,
@@ -30,23 +32,23 @@ function getBackendError(response, body, rawBody) {
   }
 
   return {
-    message: rawBody || `Backend chat request failed with ${response.status}`,
+    message: rawBody || `Backend ${requestLabel} request failed with ${response.status}`,
     details: baseDetails,
   };
 }
 
-function sendBackendChatReply(payload, sendResponse) {
-  const message = typeof payload?.message === "string" ? payload.message.trim() : "";
-
-  if (!message) {
-    sendResponse({ ok: false, error: "Missing chat message" });
-    return;
-  }
-
+function sendBackendRequest({
+  backendUrl,
+  payload,
+  requestLabel,
+  sendResponse,
+  timeoutMs,
+  buildSuccessResponse,
+}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), CHAT_REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  fetch(BACKEND_CHAT_URL, {
+  fetch(backendUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -65,26 +67,22 @@ function sendBackendChatReply(payload, sendResponse) {
       }
 
       if (!response.ok) {
-        const backendError = getBackendError(response, body, rawBody);
+        const backendError = getBackendError(response, body, rawBody, backendUrl, requestLabel);
         const error = new Error(backendError.message);
         error.details = backendError.details;
         throw error;
       }
 
-      sendResponse({
-        ok: true,
-        message: body.message || "The backend returned an empty response.",
-        model: body.model,
-      });
+      sendResponse(buildSuccessResponse(body));
     })
     .catch((error) => {
       const message = error.name === "AbortError"
-        ? "Backend chat request timed out"
+        ? `Backend ${requestLabel} request timed out`
         : error.message;
       const details = error.details || {
         source: "background",
         code: error.name === "AbortError" ? "BACKEND_TIMEOUT" : "BACKEND_REQUEST_FAILED",
-        backendUrl: BACKEND_CHAT_URL,
+        backendUrl,
       };
 
       sendResponse({ ok: false, error: message, errorDetails: details });
@@ -94,9 +92,65 @@ function sendBackendChatReply(payload, sendResponse) {
     });
 }
 
+function sendBackendChatReply(payload, sendResponse) {
+  const message = typeof payload?.message === "string" ? payload.message.trim() : "";
+
+  if (!message) {
+    sendResponse({ ok: false, error: "Missing chat message" });
+    return;
+  }
+
+  sendBackendRequest({
+    backendUrl: BACKEND_CHAT_URL,
+    payload,
+    requestLabel: "chat",
+    sendResponse,
+    timeoutMs: CHAT_REQUEST_TIMEOUT_MS,
+    buildSuccessResponse: (body) => ({
+      ok: true,
+      message: body.message || "The backend returned an empty response.",
+      model: body.model,
+    }),
+  });
+}
+
+function sendBackendTranslateReply(payload, sendResponse) {
+  const text = typeof payload?.text === "string" ? payload.text.trim() : "";
+
+  if (!text) {
+    sendResponse({ ok: false, error: "Missing text to translate" });
+    return;
+  }
+
+  sendBackendRequest({
+    backendUrl: BACKEND_TRANSLATE_URL,
+    payload: {
+      ...payload,
+      text,
+      targetLanguage: payload?.targetLanguage || "en",
+    },
+    requestLabel: "translate",
+    sendResponse,
+    timeoutMs: TRANSLATE_REQUEST_TIMEOUT_MS,
+    buildSuccessResponse: (body) => ({
+      ok: true,
+      translatedText: body.translatedText || "",
+      detectedSourceLanguage: body.detectedSourceLanguage,
+      sourceLanguage: body.sourceLanguage,
+      targetLanguage: body.targetLanguage,
+      provider: body.provider,
+    }),
+  });
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "CHAT_PROMPT") {
     sendBackendChatReply(message.payload, sendResponse);
+    return true;
+  }
+
+  if (message?.type === "TRANSLATE_TEXT") {
+    sendBackendTranslateReply(message.payload, sendResponse);
     return true;
   }
 

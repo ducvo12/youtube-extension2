@@ -21,6 +21,8 @@ if load_dotenv:
     load_dotenv(BASE_DIR / ".env")
 
 DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
+DEFAULT_TRANSLATE_TARGET_LANGUAGE = "en"
+DEFAULT_TRANSLATE_LOCATION = "global"
 ENV_FILE = BASE_DIR / ".env"
 
 
@@ -55,6 +57,32 @@ class ExplanationRequest(BaseModel):
     text: str = Field(..., min_length=1)
     source_language: str = Field(default="auto", min_length=2)
     target_language: str = Field(default="en", min_length=2)
+
+
+class TranslateRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=1000)
+    source_language: str | None = Field(default=None, min_length=2, max_length=12)
+    target_language: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=12,
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_extension_payload(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = dict(data)
+
+        if "sourceLanguage" in normalized and "source_language" not in normalized:
+            normalized["source_language"] = normalized.pop("sourceLanguage")
+
+        if "targetLanguage" in normalized and "target_language" not in normalized:
+            normalized["target_language"] = normalized.pop("targetLanguage")
+
+        return normalized
 
 
 class ChatHistoryMessage(BaseModel):
@@ -156,6 +184,21 @@ def get_gemini_model() -> str:
 
 def get_gemini_api_key() -> str:
     return os.getenv("GEMINI_API_KEY", "").strip()
+
+
+def get_google_cloud_project() -> str:
+    return os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
+
+
+def get_translate_location() -> str:
+    return os.getenv("GOOGLE_TRANSLATE_LOCATION", "").strip() or DEFAULT_TRANSLATE_LOCATION
+
+
+def get_default_translate_target_language() -> str:
+    return (
+        os.getenv("GOOGLE_TRANSLATE_TARGET_LANGUAGE", "").strip()
+        or DEFAULT_TRANSLATE_TARGET_LANGUAGE
+    )
 
 
 def format_chat_history(history: list[ChatHistoryMessage]) -> str:
@@ -269,6 +312,86 @@ def generate_gemini_chat_response(payload: ChatRequest) -> str:
     return response_text
 
 
+def translate_text_with_google(payload: TranslateRequest) -> dict[str, Any]:
+    project_id = get_google_cloud_project()
+
+    if not project_id:
+        raise_api_error(
+            status_code=503,
+            code="MISSING_GOOGLE_CLOUD_PROJECT",
+            message="GOOGLE_CLOUD_PROJECT is not configured on the backend.",
+            hint=(
+                "Set GOOGLE_CLOUD_PROJECT in backend/.env, then restart uvicorn. "
+                "Authenticate with gcloud application-default credentials or "
+                "GOOGLE_APPLICATION_CREDENTIALS."
+            ),
+            details={
+                "envFileExists": ENV_FILE.exists(),
+                "envFilePath": str(ENV_FILE),
+            },
+        )
+
+    try:
+        from google.cloud import translate_v3 as translate
+    except ImportError as error:
+        raise create_api_exception(
+            status_code=503,
+            code="GOOGLE_TRANSLATE_SDK_MISSING",
+            message="google-cloud-translate is not installed.",
+            hint="Run pip install -r requirements.txt inside the backend virtualenv.",
+        ) from error
+
+    target_language = payload.target_language or get_default_translate_target_language()
+    source_language = (payload.source_language or "").strip()
+    request: dict[str, Any] = {
+        "parent": f"projects/{project_id}/locations/{get_translate_location()}",
+        "contents": [payload.text],
+        "mime_type": "text/plain",
+        "target_language_code": target_language,
+    }
+
+    if source_language and source_language.lower() != "auto":
+        request["source_language_code"] = source_language
+
+    try:
+        client = translate.TranslationServiceClient()
+        response = client.translate_text(request=request)
+    except Exception as error:
+        raise create_api_exception(
+            status_code=502,
+            code="GOOGLE_TRANSLATE_REQUEST_FAILED",
+            message="Google Cloud Translation request failed.",
+            hint="Check Google Cloud credentials, Translation API enablement, billing, and project id.",
+            details={
+                "errorType": type(error).__name__,
+                "errorMessage": str(error),
+                "translateLocation": get_translate_location(),
+                "targetLanguage": target_language,
+            },
+        ) from error
+
+    translation = response.translations[0] if response.translations else None
+
+    if not translation or not translation.translated_text:
+        raise_api_error(
+            status_code=502,
+            code="GOOGLE_TRANSLATE_EMPTY_RESPONSE",
+            message="Google Cloud Translation returned an empty response.",
+            details={
+                "translateLocation": get_translate_location(),
+                "targetLanguage": target_language,
+            },
+        )
+
+    return {
+        "translatedText": translation.translated_text,
+        "detectedSourceLanguage": translation.detected_language_code or None,
+        "sourceLanguage": source_language or "auto",
+        "targetLanguage": target_language,
+        "provider": "google-cloud-translate-v3",
+    }
+
+
 @app.get("/")
 async def root() -> dict[str, str]:
     return {
@@ -291,6 +414,9 @@ async def debug_config() -> dict[str, Any]:
     return {
         "geminiApiKeyConfigured": bool(get_gemini_api_key()),
         "geminiModel": get_gemini_model(),
+        "googleCloudProjectConfigured": bool(get_google_cloud_project()),
+        "translateLocation": get_translate_location(),
+        "translateTargetLanguage": get_default_translate_target_language(),
         "envFileExists": ENV_FILE.exists(),
         "envFilePath": str(ENV_FILE),
         "dotenvInstalled": load_dotenv is not None,
@@ -319,6 +445,11 @@ async def chat(payload: ChatRequest) -> dict[str, Any]:
         "message": message,
         "model": get_gemini_model(),
     }
+
+
+@app.post("/api/translate")
+async def translate_text(payload: TranslateRequest) -> dict[str, Any]:
+    return await run_in_threadpool(translate_text_with_google, payload)
 
 
 @app.post("/api/test/explain")
