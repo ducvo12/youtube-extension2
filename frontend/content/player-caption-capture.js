@@ -72,7 +72,7 @@ function ensurePageCaptionCapturerInjected() {
 
 // Internal helper for loadTranscriptFromPlayerCaptions.
 // Starts a one-shot capture and resolves with the next caption response body.
-async function captureNextPlayerCaptionRequest(onCaptureStarted = () => { }) {
+async function captureNextPlayerCaptionRequest(expectedVideoId, onCaptureStarted = () => { }) {
   await ensurePageCaptionCapturerInjected();
 
   return new Promise((resolve, reject) => {
@@ -149,6 +149,7 @@ async function captureNextPlayerCaptionRequest(onCaptureStarted = () => { }) {
       source: "yt-translator-content",
       type: "START_PLAYER_CAPTION_CAPTURE",
       requestId,
+      expectedVideoId,
       timeoutMs: 12000,
     }, "*");
   });
@@ -172,6 +173,43 @@ function isCaptionButtonEnabled(button) {
 // Waits for a short delay between YouTube player control interactions.
 function wait(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+// Internal helper for loadTranscriptFromPlayerCaptions.
+// Defers transcript capture until YouTube has switched from an ad to the video.
+function waitForAdToFinishBeforeCaptionCapture(videoId, requestId, attempt) {
+  const button = document.getElementById(PLAYER_CAPTURE_BUTTON_ID);
+
+  pendingPlayerCaptionCaptureVideoId = videoId;
+  setPlayerCaptureButtonVisible(false);
+  setTranscriptStatus("Ad playing. Transcript will load after the video resumes.");
+
+  if (button) {
+    button.disabled = true;
+  }
+
+  window.clearTimeout(pendingPlayerCaptionCaptureTimer);
+  pendingPlayerCaptionCaptureTimer = window.setTimeout(() => {
+    pendingPlayerCaptionCaptureTimer = null;
+
+    if (requestId !== activeTranscriptRequest || videoId !== getVideoId()) {
+      pendingPlayerCaptionCaptureVideoId = null;
+
+      if (button) {
+        button.disabled = false;
+      }
+
+      return;
+    }
+
+    if (isAdShowing()) {
+      waitForAdToFinishBeforeCaptionCapture(videoId, requestId, attempt);
+      return;
+    }
+
+    pendingPlayerCaptionCaptureVideoId = null;
+    loadTranscriptFromPlayerCaptions(true, attempt, requestId);
+  }, 500);
 }
 
 // Internal helper for loadTranscriptFromPlayerCaptions.
@@ -209,7 +247,7 @@ async function restorePlayerCaptionState(wasEnabled) {
 
 // Called externally by sidebar.js.
 // Captures YouTube player's caption response, parses it, and renders transcript segments.
-async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0) {
+async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0, requestId = null) {
   const videoId = getVideoId();
 
   if (!videoId) {
@@ -217,7 +255,15 @@ async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0
     return;
   }
 
-  if (loadedTranscriptVideoId === videoId || activePlayerCaptionCaptureVideoId === videoId) {
+  if (loadedTranscriptVideoId === videoId
+    || activePlayerCaptionCaptureVideoId === videoId
+    || (pendingPlayerCaptionCaptureVideoId === videoId && requestId === null)) {
+    return;
+  }
+
+  const captionRequestId = requestId || (activeTranscriptRequest += 1);
+
+  if (captionRequestId !== activeTranscriptRequest) {
     return;
   }
 
@@ -225,9 +271,15 @@ async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0
     userAllowedCaptionCapture = true;
   }
 
+  const button = document.getElementById(PLAYER_CAPTURE_BUTTON_ID);
+
+  if (isAdShowing()) {
+    waitForAdToFinishBeforeCaptionCapture(videoId, captionRequestId, attempt);
+    return;
+  }
+
   activePlayerCaptionCaptureVideoId = videoId;
 
-  const button = document.getElementById(PLAYER_CAPTURE_BUTTON_ID);
   const captionButton = getCaptionButton();
 
   if (!captionButton) {
@@ -254,7 +306,17 @@ async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0
   }
 
   try {
-    const captured = await captureNextPlayerCaptionRequest(() => triggerPlayerCaptionLoad(wasEnabled));
+    const captured = await captureNextPlayerCaptionRequest(videoId, () => triggerPlayerCaptionLoad(wasEnabled));
+
+    if (captionRequestId !== activeTranscriptRequest || videoId !== getVideoId()) {
+      return;
+    }
+
+    if (isAdShowing()) {
+      waitForAdToFinishBeforeCaptionCapture(videoId, captionRequestId, attempt);
+      return;
+    }
+
     const segments = parseTranscriptBodyAuto(captured.body);
 
     if (!segments.length) {

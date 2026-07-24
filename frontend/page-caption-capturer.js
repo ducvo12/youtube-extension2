@@ -10,12 +10,32 @@
     return typeof url === "string" && url.includes("timedtext");
   }
 
+  function getCaptionVideoId(url) {
+    try {
+      return new URL(url, window.location.href).searchParams.get("v");
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function shouldUseCaptionUrlForCapture(url, capture) {
+    if (!capture.expectedVideoId) {
+      return true;
+    }
+
+    return getCaptionVideoId(url) === capture.expectedVideoId;
+  }
+
   function finishCapture(body, url) {
     if (!body.trim()) {
       return;
     }
 
     for (const [requestId, capture] of captures) {
+      if (!shouldUseCaptionUrlForCapture(url, capture)) {
+        continue;
+      }
+
       window.clearTimeout(capture.timeout);
       captures.delete(requestId);
       window.postMessage({
@@ -114,11 +134,12 @@
     }
 
     const requestId = event.data.requestId;
+    const expectedVideoId = event.data.expectedVideoId || null;
     const timeout = window.setTimeout(() => {
       failCapture(requestId, "Timed out waiting for YouTube caption request");
     }, event.data.timeoutMs || 12000);
 
-    captures.set(requestId, { timeout });
+    captures.set(requestId, { timeout, expectedVideoId });
     window.postMessage({
       source: "yt-translator-caption-capturer",
       type: "PLAYER_CAPTION_CAPTURE_STARTED",

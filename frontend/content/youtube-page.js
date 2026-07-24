@@ -45,11 +45,26 @@ function getPlaybackTimeMs() {
 // Detects whether YouTube is currently showing an ad instead of the main video.
 function isAdShowing() {
   const player = document.getElementById("movie_player");
+  const adState = player?.getAdState?.();
+  const adElements = [
+    ".ytp-ad-player-overlay",
+    ".ytp-ad-text",
+    ".ytp-ad-preview-container",
+    ".ytp-ad-message-container",
+    ".ytp-ad-skip-button",
+    ".ytp-ad-skip-button-modern",
+    ".ytp-ad-overlay-container",
+    ".video-ads .ytp-ad-module",
+  ];
 
   return Boolean(player?.classList.contains("ad-showing")
     || player?.classList.contains("ad-interrupting")
-    || document.querySelector(".ytp-ad-player-overlay")
-    || document.querySelector(".ytp-ad-text"));
+    || (typeof adState === "number" && adState !== 0)
+    || adElements.some((selector) => {
+      const element = document.querySelector(selector);
+      return Boolean(element
+        && (element.offsetWidth || element.offsetHeight || element.getClientRects().length));
+    }));
 }
 
 // Internal helper for getPlayerResponseFromScripts.

@@ -9,8 +9,10 @@
 
 function handleNavigation() {
   // Resets states
+  activeTranscriptRequest += 1;
   loadedTranscriptVideoId = null;
   activePlayerCaptionCaptureVideoId = null;
+  pendingPlayerCaptionCaptureVideoId = null;
   currentTranscriptSegments = [];
   currentCaptionIndex = -1;
   chatMessages = [];
@@ -21,6 +23,8 @@ function handleNavigation() {
   isCaptionRiverPausedForAd = false;
 
   // Stop the old video's caption sync timer before refreshing for the new page.
+  window.clearTimeout(pendingPlayerCaptionCaptureTimer);
+  pendingPlayerCaptionCaptureTimer = null;
   window.clearInterval(captionRiverTimer);
 
   // Located in sidebar.js
