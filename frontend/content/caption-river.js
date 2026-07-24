@@ -139,7 +139,13 @@ function snapCaptionSelectionToWords() {
   selection.addRange(snappedRange);
   isSnappingCaptionSelection = false;
 
-  selectedCaptionText = snappedRange.toString().replace(/\s+/g, " ").trim();
+  const nextSelectedCaptionText = snappedRange.toString().replace(/\s+/g, " ").trim();
+
+  if (nextSelectedCaptionText !== selectedCaptionText) {
+    resetTranslateState();
+  }
+
+  selectedCaptionText = nextSelectedCaptionText;
   renderSelectedCaptionPill();
 }
 

@@ -100,6 +100,15 @@ function renderSelectedCaptionPill() {
   text.className = "yt-translator-selected-caption__text";
   text.textContent = selectedCaptionText;
 
+  const translateButton = document.createElement("button");
+  translateButton.id = TRANSLATE_BUTTON_ID;
+  translateButton.className = "yt-translator-selected-caption__translate";
+  translateButton.type = "button";
+  translateButton.textContent = isTranslateWaiting ? "Translating..." : "Translate";
+  translateButton.disabled = isTranslateWaiting;
+  translateButton.setAttribute("aria-label", "Translate selected caption text");
+  translateButton.addEventListener("click", submitTranslatePrompt);
+
   // Button to remove the selected caption pill
   const clearButton = document.createElement("button");
   clearButton.className = "yt-translator-selected-caption__clear";
@@ -110,12 +119,15 @@ function renderSelectedCaptionPill() {
   // Attaches itself for future clicks
   clearButton.addEventListener("click", () => {
     selectedCaptionText = "";
+    resetTranslateState();
     window.getSelection()?.removeAllRanges();
     renderSelectedCaptionPill();
+    renderTranslateBox();
     document.getElementById(CHAT_INPUT_ID)?.focus();
   });
 
-  contextNode.append(label, text, clearButton);
+  contextNode.append(label, text, translateButton, clearButton);
+  renderTranslateBox();
 }
 
 // Called externally by content.js and internally by submitChatPrompt.
@@ -129,6 +141,7 @@ function renderChatRiver() {
   }
 
   river.textContent = "";
+  river.hidden = !chatMessages.length;
 
   if (!chatMessages.length) {
     setChatControlsWaiting(isChatWaitingForReply);

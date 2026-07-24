@@ -144,7 +144,7 @@
 
 .yt-translator-selected-caption {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: center;
   margin-top: 10px;
@@ -176,6 +176,30 @@
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.yt-translator-selected-caption__translate {
+  min-width: 76px;
+  height: 28px;
+  padding: 0 10px;
+  color: #071019;
+  background: #b7dcff;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.yt-translator-selected-caption__translate:hover {
+  background: #d3ebff;
+}
+
+.yt-translator-selected-caption__translate:disabled {
+  cursor: wait;
+  opacity: 0.68;
 }
 
 .yt-translator-selected-caption__clear {
@@ -257,67 +281,6 @@
 }
 
 .yt-translator-chat-form__send:disabled {
-  cursor: wait;
-  opacity: 0.68;
-}
-
-.yt-translator-translate-form {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  align-items: end;
-}
-
-.yt-translator-translate-form__input {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 70px;
-  max-height: 140px;
-  resize: vertical;
-  padding: 10px 11px;
-  color: #f4f7fa;
-  background: #11151b;
-  border: 1px solid #303844;
-  border-radius: 8px;
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.yt-translator-translate-form__input::placeholder {
-  color: #808995;
-}
-
-.yt-translator-translate-form__input:focus {
-  border-color: #78a8ff;
-  outline: 2px solid rgba(120, 168, 255, 0.25);
-}
-
-.yt-translator-translate-form__input:disabled {
-  cursor: wait;
-  opacity: 0.72;
-}
-
-.yt-translator-translate-form__send {
-  min-width: 82px;
-  min-height: 38px;
-  padding: 0 12px;
-  color: #061017;
-  background: #b7dcff;
-  border: 0;
-  border-radius: 8px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.yt-translator-translate-form__send:hover {
-  background: #d3ebff;
-}
-
-.yt-translator-translate-form__send:disabled {
   cursor: wait;
   opacity: 0.68;
 }

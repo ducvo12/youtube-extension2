@@ -15,6 +15,7 @@ function handleNavigation() {
   currentCaptionIndex = -1;
   chatMessages = [];
   selectedCaptionText = "";
+  resetTranslateState();
   isChatWaitingForReply = false;
   activeChatRequest += 1;
   isCaptionRiverPausedForAd = false;

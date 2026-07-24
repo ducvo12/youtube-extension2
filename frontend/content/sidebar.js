@@ -88,15 +88,6 @@ function setupSidebarActions() {
     });
   }
 
-  const translateForm = document.getElementById(TRANSLATE_FORM_ID);
-
-  if (translateForm && translateForm.dataset.initialized !== "true") {
-    translateForm.dataset.initialized = "true";
-    translateForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      submitTranslatePrompt();
-    });
-  }
 }
 
 // Internal helper for createSidebar.
@@ -152,10 +143,11 @@ function createSidebar() {
         <div id="${CAPTION_RIVER_ID}" class="yt-translator-caption-river">Current caption will appear after captions load.</div>
       </div>
       <div id="${SELECTED_CAPTION_ID}" class="yt-translator-selected-caption" hidden></div>
+      <div id="${TRANSLATE_RESULT_ID}" class="yt-translator-translate-result" hidden></div>
     </div>
     <div class="yt-translator-sidebar__section">
       <h3 class="yt-translator-sidebar__subheading">Ask</h3>
-      <div id="${CHAT_RIVER_ID}" class="yt-translator-chat-river"></div>
+      <div id="${CHAT_RIVER_ID}" class="yt-translator-chat-river" hidden></div>
       <form id="${CHAT_FORM_ID}" class="yt-translator-chat-form">
         <textarea
           id="${CHAT_INPUT_ID}"
@@ -167,27 +159,12 @@ function createSidebar() {
         <button id="${CHAT_SEND_BUTTON_ID}" class="yt-translator-chat-form__send" type="submit">Send</button>
       </form>
     </div>
-    <div class="yt-translator-sidebar__section">
-      <h3 class="yt-translator-sidebar__subheading">Quick Translate</h3>
-      <form id="${TRANSLATE_FORM_ID}" class="yt-translator-translate-form">
-        <textarea
-          id="${TRANSLATE_INPUT_ID}"
-          class="yt-translator-translate-form__input"
-          rows="3"
-          maxlength="1000"
-          placeholder="Paste text to translate..."
-        ></textarea>
-        <button id="${TRANSLATE_BUTTON_ID}" class="yt-translator-translate-form__send" type="submit">Translate</button>
-      </form>
-      <div id="${TRANSLATE_RESULT_ID}" class="yt-translator-translate-result" hidden></div>
-    </div>
   `;
 
   recommendationsColumn.prepend(sidebar);
   setupSidebarActions();
   renderChatRiver();
   renderSelectedCaptionPill();
-  renderTranslateBox();
   updateSidebarTitle();
   setInitialTranscriptPrompt();
 }

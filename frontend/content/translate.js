@@ -1,12 +1,7 @@
 // Internal helper for submitTranslatePrompt.
-// Disables or restores the temporary translate controls while the backend responds.
+// Disables or restores the selected-caption translate control while the backend responds.
 function setTranslateControlsWaiting(isWaiting) {
-  const input = document.getElementById(TRANSLATE_INPUT_ID);
   const button = document.getElementById(TRANSLATE_BUTTON_ID);
-
-  if (input) {
-    input.disabled = isWaiting;
-  }
 
   if (button) {
     button.disabled = isWaiting;
@@ -14,8 +9,18 @@ function setTranslateControlsWaiting(isWaiting) {
   }
 }
 
+// Called externally by caption selection handlers and internally by submitTranslatePrompt.
+// Clears the selected-caption translation result and cancels older in-flight output.
+function resetTranslateState() {
+  activeTranslateRequest += 1;
+  isTranslateWaiting = false;
+  translateResult = "";
+  translateError = "";
+  translateErrorDetails = null;
+}
+
 // Called externally by sidebar.js and internally by submitTranslatePrompt.
-// Renders the temporary translation box result area.
+// Renders the selected-caption translation result area.
 function renderTranslateBox() {
   const resultNode = document.getElementById(TRANSLATE_RESULT_ID);
 
@@ -94,22 +99,17 @@ function sendTranslatePromptToBackground(payload) {
   });
 }
 
-// Called externally by sidebar.js.
-// Submits text from the temporary translation box and renders the English response.
+// Called externally by selected caption controls.
+// Translates the currently highlighted caption text and renders the English response.
 async function submitTranslatePrompt() {
-  const input = document.getElementById(TRANSLATE_INPUT_ID);
-
-  if (!input || isTranslateWaiting) {
+  if (isTranslateWaiting) {
     return;
   }
 
-  const text = input.value.trim();
+  const text = selectedCaptionText.trim();
 
   if (!text) {
-    input.value = "";
-    translateResult = "";
-    translateError = "";
-    translateErrorDetails = null;
+    resetTranslateState();
     renderTranslateBox();
     return;
   }
@@ -146,8 +146,8 @@ async function submitTranslatePrompt() {
   } finally {
     if (requestId === activeTranslateRequest) {
       isTranslateWaiting = false;
+      renderSelectedCaptionPill();
       renderTranslateBox();
-      document.getElementById(TRANSLATE_INPUT_ID)?.focus();
     }
   }
 }
