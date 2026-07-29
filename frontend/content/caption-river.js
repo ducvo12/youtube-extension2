@@ -248,7 +248,7 @@ function startCaptionRiverUpdates() {
 // Called externally by content.js after transcript segments are loaded.
 // Stores transcript segments and starts rendering the caption river.
 // Called when new video (and new transcript) are loaded
-function renderTranscript(segments) {
+function renderTranscript(segments, trackLabel = "") {
   currentTranscriptSegments = segments;
   currentCaptionIndex = -1;
 
@@ -260,5 +260,5 @@ function renderTranscript(segments) {
 
   setPlayerCaptureButtonVisible(false);
   startCaptionRiverUpdates();
-  setTranscriptStatus("Captions loaded.");
+  setTranscriptStatus(trackLabel ? `Captions loaded: ${trackLabel}.` : "Captions loaded.");
 }

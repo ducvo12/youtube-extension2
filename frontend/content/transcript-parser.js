@@ -44,10 +44,22 @@ function parseXmlTranscript(body) {
     throw new Error("Invalid XML transcript response");
   }
 
-  return Array.from(document.querySelectorAll("text"))
+  const textSegments = Array.from(document.querySelectorAll("text"))
     .map((node) => ({
       startMs: Math.round(Number(node.getAttribute("start") || 0) * 1000),
       durationMs: Math.round(Number(node.getAttribute("dur") || 0) * 1000),
+      text: (node.textContent || "").replace(/\s+/g, " ").trim(),
+    }))
+    .filter((segment) => segment.text);
+
+  if (textSegments.length) {
+    return textSegments;
+  }
+
+  return Array.from(document.querySelectorAll("p"))
+    .map((node) => ({
+      startMs: Math.round(Number(node.getAttribute("t") || 0)),
+      durationMs: Math.round(Number(node.getAttribute("d") || 0)),
       text: (node.textContent || "").replace(/\s+/g, " ").trim(),
     }))
     .filter((segment) => segment.text);

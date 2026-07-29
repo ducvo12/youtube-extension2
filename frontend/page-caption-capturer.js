@@ -7,7 +7,18 @@
   const captures = new Map();
 
   function isCaptionUrl(url) {
-    return typeof url === "string" && url.includes("timedtext");
+    if (typeof url !== "string" || !url.includes("timedtext")) {
+      return false;
+    }
+
+    try {
+      const parsedUrl = new URL(url, window.location.href);
+
+      return parsedUrl.searchParams.has("lang")
+        && parsedUrl.searchParams.get("type") !== "list";
+    } catch (_error) {
+      return false;
+    }
   }
 
   function getCaptionVideoId(url) {

@@ -11,6 +11,11 @@ function handleNavigation() {
   // Resets states
   activeTranscriptRequest += 1;
   loadedTranscriptVideoId = null;
+  loadedTranscriptTrackKey = "";
+  availableCaptionTracks = [];
+  selectedCaptionTrackKey = "";
+  hasUserSelectedCaptionTrackForVideo = false;
+  lastCapturedPlayerCaptionUrl = "";
   activePlayerCaptionCaptureVideoId = null;
   pendingPlayerCaptionCaptureVideoId = null;
   currentTranscriptSegments = [];

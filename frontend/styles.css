@@ -57,6 +57,40 @@
   line-height: 1.4;
 }
 
+.yt-translator-caption-track {
+  display: block;
+  margin: 0 0 12px;
+}
+
+.yt-translator-caption-track[hidden] {
+  display: none;
+}
+
+.yt-translator-caption-track__select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 34px 0 10px;
+  color: #f2f5f8;
+  background: #11151b;
+  border: 1px solid #303844;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.yt-translator-caption-track__select:focus {
+  border-color: #78a8ff;
+  outline: 2px solid rgba(120, 168, 255, 0.25);
+}
+
+.yt-translator-caption-track__select:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
 .yt-translator-chat-river {
   box-sizing: border-box;
   height: 240px;
