@@ -409,11 +409,53 @@ async function parseOrRefetchCapturedTranscript(captured) {
   return fetchCaptionTrackTranscript(capturedTrack);
 }
 
+// Internal helper for loadTranscriptFromSelectedCaptionTrack.
+// Captures one player caption URL so selected-track fetches can reuse YouTube's current request params.
+async function primeCaptionTrackRequestParams(videoId, captionRequestId, trackLabel) {
+  if (lastCapturedPlayerCaptionUrl) {
+    return;
+  }
+
+  if (isAdShowing()) {
+    return;
+  }
+
+  const captionButton = getCaptionButton();
+
+  if (!captionButton) {
+    return;
+  }
+
+  const wasEnabled = isCaptionButtonEnabled(captionButton);
+
+  activePlayerCaptionCaptureVideoId = videoId;
+  setTranscriptStatus(`Preparing ${trackLabel} captions...`);
+
+  try {
+    const captured = await captureNextPlayerCaptionRequest(videoId, () => triggerPlayerCaptionLoad(wasEnabled));
+
+    if (captionRequestId !== activeTranscriptRequest || videoId !== getVideoId()) {
+      return;
+    }
+
+    lastCapturedPlayerCaptionUrl = captured.url;
+
+    if (typeof refreshAvailableCaptionTracks === "function") {
+      refreshAvailableCaptionTracks();
+      renderCaptionTrackSelector();
+    }
+  } finally {
+    await restorePlayerCaptionState(wasEnabled);
+    activePlayerCaptionCaptureVideoId = null;
+  }
+}
+
 // Called externally by sidebar.js.
 // Loads the transcript for the caption track selected in the sidebar.
-async function loadTranscriptFromSelectedCaptionTrack(isAutomatic = false) {
+async function loadTranscriptFromSelectedCaptionTrack(isAutomatic = false, options = {}) {
   const videoId = getVideoId();
   const track = getSelectedCaptionTrack();
+  const shouldPrimeWithPlayerCapture = options.primeWithPlayerCapture && !lastCapturedPlayerCaptionUrl;
 
   if (!track) {
     await loadTranscriptFromPlayerCaptions(isAutomatic);
@@ -449,15 +491,32 @@ async function loadTranscriptFromSelectedCaptionTrack(isAutomatic = false) {
   }
 
   try {
-    const segments = await fetchCaptionTrackTranscript(track);
+    if (shouldPrimeWithPlayerCapture) {
+      try {
+        await primeCaptionTrackRequestParams(videoId, captionRequestId, track.label);
+      } catch (error) {
+        console.warn("Unable to prepare caption request params before selected-track fetch", error);
+      }
+
+      if (select) {
+        select.disabled = true;
+      }
+    }
+
+    if (captionRequestId !== activeTranscriptRequest || videoId !== getVideoId()) {
+      return;
+    }
+
+    const refreshedTrack = getSelectedCaptionTrack() || track;
+    const segments = await fetchCaptionTrackTranscript(refreshedTrack);
 
     if (captionRequestId !== activeTranscriptRequest || videoId !== getVideoId()) {
       return;
     }
 
     loadedTranscriptVideoId = videoId;
-    loadedTranscriptTrackKey = track.key;
-    renderTranscript(segments, track.label);
+    loadedTranscriptTrackKey = refreshedTrack.key;
+    renderTranscript(segments, refreshedTrack.label);
   } catch (error) {
     console.error("Unable to load selected caption track", error);
     setTranscriptStatus(`Unable to load selected captions: ${error.message}`);

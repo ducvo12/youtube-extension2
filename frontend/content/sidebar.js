@@ -121,7 +121,7 @@ function renderCaptionTrackSelector() {
 // Preserves the original player-capture path until the user chooses a track here.
 function loadTranscriptForCurrentCaptionChoice(isAutomatic = false) {
   if (hasUserSelectedCaptionTrackForVideo) {
-    loadTranscriptFromSelectedCaptionTrack(isAutomatic);
+    loadTranscriptFromSelectedCaptionTrack(isAutomatic, { primeWithPlayerCapture: true });
     return;
   }
 
@@ -191,7 +191,14 @@ function setupSidebarActions() {
       window.getSelection()?.removeAllRanges();
       renderSelectedCaptionPill();
       renderTranslateBox();
-      loadTranscriptFromSelectedCaptionTrack(false);
+
+      if (userAllowedCaptionCapture || loadedTranscriptVideoId === getVideoId()) {
+        loadTranscriptFromSelectedCaptionTrack(false);
+        return;
+      }
+
+      setTranscriptStatus("Click below to load the selected transcript.");
+      setPlayerCaptureButtonVisible(true);
     });
   }
 
