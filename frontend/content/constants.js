@@ -1,4 +1,7 @@
 const SIDEBAR_ID = "yt-translator-sidebar";
+const SIDEBAR_BODY_ID = "yt-translator-sidebar-body";
+const SIDEBAR_TOGGLE_BUTTON_ID = "yt-translator-sidebar-toggle";
+const SIDEBAR_OPEN_STORAGE_KEY = "ytTranslatorSidebarOpen";
 const TITLE_ID = "yt-translator-video-title";
 const TRANSCRIPT_STATUS_ID = "yt-translator-transcript-status";
 const CAPTION_TRACK_SELECT_ID = "yt-translator-caption-track-select";

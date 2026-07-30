@@ -11,13 +11,74 @@
   font-family: Inter, Roboto, Arial, sans-serif;
 }
 
+#yt-translator-sidebar.yt-translator-sidebar--collapsed {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+}
+
+.yt-translator-sidebar__header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .yt-translator-sidebar__eyebrow {
-  margin-bottom: 14px;
+  margin: 0 0 14px;
   color: #9a9a9a;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+}
+
+.yt-translator-sidebar__header .yt-translator-sidebar__eyebrow {
+  margin-bottom: 0;
+}
+
+.yt-translator-sidebar__toggle {
+  position: relative;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: #f5f5f5;
+  background: transparent;
+  border: 1px solid #323232;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.yt-translator-sidebar__toggle:hover {
+  border-color: #525252;
+  background: #111111;
+}
+
+.yt-translator-sidebar__toggle::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  content: "";
+  transform: translate(-50%, -62%) rotate(45deg);
+}
+
+.yt-translator-sidebar__toggle--open::before {
+  transform: translate(-50%, -38%) rotate(-135deg);
+}
+
+.yt-translator-sidebar__toggle:focus-visible {
+  outline: 2px solid rgba(120, 168, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.yt-translator-sidebar__body[hidden] {
+  display: none;
 }
 
 .yt-translator-sidebar__heading {

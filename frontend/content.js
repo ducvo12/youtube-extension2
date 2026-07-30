@@ -1,4 +1,4 @@
-createSidebar();
+initializeSidebarOpenState(createSidebar);
 
 // Call handleNavigation when specific Youtube/browser events happen
 window.addEventListener("yt-navigate-finish", handleNavigation);

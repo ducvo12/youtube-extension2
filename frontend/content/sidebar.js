@@ -10,6 +10,65 @@ function updateSidebarTitle() {
   titleNode.textContent = getVideoTitle();
 }
 
+// Called externally by content.js.
+// Loads the persisted sidebar open state before the first render.
+function initializeSidebarOpenState(callback) {
+  if (hasLoadedSidebarOpenState) {
+    callback();
+    return;
+  }
+
+  if (typeof chrome === "undefined" || !chrome.storage?.local) {
+    hasLoadedSidebarOpenState = true;
+    callback();
+    return;
+  }
+
+  chrome.storage.local.get([SIDEBAR_OPEN_STORAGE_KEY], (result) => {
+    hasLoadedSidebarOpenState = true;
+
+    if (!chrome.runtime.lastError && typeof result[SIDEBAR_OPEN_STORAGE_KEY] === "boolean") {
+      isSidebarOpen = result[SIDEBAR_OPEN_STORAGE_KEY];
+    }
+
+    callback();
+  });
+}
+
+// Internal helper for createSidebar and setupSidebarActions.
+// Applies the current open/collapsed state to the sidebar shell.
+function renderSidebarOpenState() {
+  const sidebar = document.getElementById(SIDEBAR_ID);
+  const body = document.getElementById(SIDEBAR_BODY_ID);
+  const toggleButton = document.getElementById(SIDEBAR_TOGGLE_BUTTON_ID);
+
+  if (!sidebar || !body || !toggleButton) {
+    return;
+  }
+
+  sidebar.classList.toggle("yt-translator-sidebar--collapsed", !isSidebarOpen);
+  body.hidden = !isSidebarOpen;
+  toggleButton.textContent = "";
+  toggleButton.classList.toggle("yt-translator-sidebar__toggle--open", isSidebarOpen);
+  toggleButton.setAttribute("aria-expanded", String(isSidebarOpen));
+  toggleButton.setAttribute(
+    "aria-label",
+    isSidebarOpen ? "Hide language assistant sidebar" : "Open language assistant sidebar",
+  );
+  toggleButton.title = isSidebarOpen ? "Hide sidebar" : "Open sidebar";
+}
+
+// Internal helper for setupSidebarActions.
+// Updates and persists the sidebar open state.
+function setSidebarOpen(nextIsOpen) {
+  isSidebarOpen = nextIsOpen;
+  renderSidebarOpenState();
+
+  if (typeof chrome !== "undefined" && chrome.storage?.local) {
+    chrome.storage.local.set({ [SIDEBAR_OPEN_STORAGE_KEY]: isSidebarOpen });
+  }
+}
+
 // Called externally by caption-river.js and player-caption-capture.js.
 // Updates the transcript status message shown in the sidebar.
 function setTranscriptStatus(message) {
@@ -165,6 +224,19 @@ function setInitialTranscriptPrompt() {
 // Internal helper for createSidebar.
 // Attaches sidebar button, caption selection, and chat form event handlers.
 function setupSidebarActions() {
+  const toggleButton = document.getElementById(SIDEBAR_TOGGLE_BUTTON_ID);
+
+  if (toggleButton && toggleButton.dataset.initialized !== "true") {
+    toggleButton.dataset.initialized = "true";
+    toggleButton.addEventListener("click", () => {
+      setSidebarOpen(!isSidebarOpen);
+
+      if (isSidebarOpen) {
+        createSidebar();
+      }
+    });
+  }
+
   const button = document.getElementById(PLAYER_CAPTURE_BUTTON_ID);
 
   if (button && button.dataset.initialized !== "true") {
@@ -239,6 +311,11 @@ function removeSidebar() {
 // Called externally by content.js.
 // Creates, refreshes, or removes the sidebar based on the current YouTube page.
 function createSidebar() {
+  if (!hasLoadedSidebarOpenState) {
+    initializeSidebarOpenState(createSidebar);
+    return;
+  }
+
   if (!isWatchPage()) {
     removeSidebar();
     return;
@@ -247,6 +324,7 @@ function createSidebar() {
   if (document.getElementById(SIDEBAR_ID)) {
     updateSidebarTitle();
     setupSidebarActions();
+    renderSidebarOpenState();
     renderChatRiver();
     renderSelectedCaptionPill();
     renderTranslateBox();
@@ -270,42 +348,54 @@ function createSidebar() {
   const sidebar = document.createElement("aside");
   sidebar.id = SIDEBAR_ID;
   sidebar.innerHTML = `
-    <div class="yt-translator-sidebar__eyebrow">Language Assistant</div>
-    <div class="yt-translator-sidebar__section">
-      <h3 class="yt-translator-sidebar__subheading">Current Caption</h3>
-      <p id="${TRANSCRIPT_STATUS_ID}" class="yt-translator-sidebar__status">Loading transcript...</p>
-      <label id="${CAPTION_TRACK_GROUP_ID}" class="yt-translator-caption-track" hidden>
-        <span class="yt-translator-sidebar__label">Caption Track</span>
-        <select id="${CAPTION_TRACK_SELECT_ID}" class="yt-translator-caption-track__select"></select>
-      </label>
-      <button id="${PLAYER_CAPTURE_BUTTON_ID}" class="yt-translator-sidebar__button" type="button" hidden>
-        Load transcript
-      </button>
-      <div class="yt-translator-caption-river-wrap">
-        <div class="yt-translator-sidebar__label">Now Playing</div>
-        <div id="${CAPTION_RIVER_ID}" class="yt-translator-caption-river">Current caption will appear after captions load.</div>
-      </div>
-      <div id="${SELECTED_CAPTION_ID}" class="yt-translator-selected-caption" hidden></div>
-      <div id="${TRANSLATE_RESULT_ID}" class="yt-translator-translate-result" hidden></div>
+    <div class="yt-translator-sidebar__header">
+      <div class="yt-translator-sidebar__eyebrow">Language Assistant</div>
+      <button
+        id="${SIDEBAR_TOGGLE_BUTTON_ID}"
+        class="yt-translator-sidebar__toggle"
+        type="button"
+        aria-expanded="true"
+        aria-controls="${SIDEBAR_BODY_ID}"
+      >Hide</button>
     </div>
-    <div class="yt-translator-sidebar__section">
-      <h3 class="yt-translator-sidebar__subheading">Ask</h3>
-      <div id="${CHAT_RIVER_ID}" class="yt-translator-chat-river" hidden></div>
-      <form id="${CHAT_FORM_ID}" class="yt-translator-chat-form">
-        <textarea
-          id="${CHAT_INPUT_ID}"
-          class="yt-translator-chat-form__input"
-          rows="3"
-          maxlength="1200"
-          placeholder="Ask about the current phrase, tone, grammar, or slang..."
-        ></textarea>
-        <button id="${CHAT_SEND_BUTTON_ID}" class="yt-translator-chat-form__send" type="submit">Send</button>
-      </form>
+    <div id="${SIDEBAR_BODY_ID}" class="yt-translator-sidebar__body">
+      <div class="yt-translator-sidebar__section">
+        <h3 class="yt-translator-sidebar__subheading">Current Caption</h3>
+        <p id="${TRANSCRIPT_STATUS_ID}" class="yt-translator-sidebar__status">Loading transcript...</p>
+        <label id="${CAPTION_TRACK_GROUP_ID}" class="yt-translator-caption-track" hidden>
+          <span class="yt-translator-sidebar__label">Caption Track</span>
+          <select id="${CAPTION_TRACK_SELECT_ID}" class="yt-translator-caption-track__select"></select>
+        </label>
+        <button id="${PLAYER_CAPTURE_BUTTON_ID}" class="yt-translator-sidebar__button" type="button" hidden>
+          Load transcript
+        </button>
+        <div class="yt-translator-caption-river-wrap">
+          <div class="yt-translator-sidebar__label">Now Playing</div>
+          <div id="${CAPTION_RIVER_ID}" class="yt-translator-caption-river">Current caption will appear after captions load.</div>
+        </div>
+        <div id="${SELECTED_CAPTION_ID}" class="yt-translator-selected-caption" hidden></div>
+        <div id="${TRANSLATE_RESULT_ID}" class="yt-translator-translate-result" hidden></div>
+      </div>
+      <div class="yt-translator-sidebar__section">
+        <h3 class="yt-translator-sidebar__subheading">Ask</h3>
+        <div id="${CHAT_RIVER_ID}" class="yt-translator-chat-river" hidden></div>
+        <form id="${CHAT_FORM_ID}" class="yt-translator-chat-form">
+          <textarea
+            id="${CHAT_INPUT_ID}"
+            class="yt-translator-chat-form__input"
+            rows="3"
+            maxlength="1200"
+            placeholder="Ask about the current phrase, tone, grammar, or slang..."
+          ></textarea>
+          <button id="${CHAT_SEND_BUTTON_ID}" class="yt-translator-chat-form__send" type="submit">Send</button>
+        </form>
+      </div>
     </div>
   `;
 
   recommendationsColumn.prepend(sidebar);
   setupSidebarActions();
+  renderSidebarOpenState();
   renderChatRiver();
   renderSelectedCaptionPill();
   updateSidebarTitle();
