@@ -37,6 +37,34 @@
   margin-bottom: 0;
 }
 
+.yt-translator-sidebar__header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.yt-translator-sidebar__diagnostics-button {
+  min-height: 32px;
+  padding: 0 10px;
+  color: #dbe7f7;
+  background: #121821;
+  border: 1px solid #303844;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.yt-translator-sidebar__diagnostics-button:hover,
+.yt-translator-sidebar__diagnostics-button[aria-pressed="true"] {
+  color: #ffffff;
+  border-color: #5d7ea8;
+  background: #1a2735;
+}
+
 .yt-translator-sidebar__toggle {
   position: relative;
   flex: 0 0 auto;
@@ -81,6 +109,11 @@
   display: none;
 }
 
+#yt-translator-diagnostics-content[hidden],
+.yt-translator-diagnostics[hidden] {
+  display: none;
+}
+
 .yt-translator-sidebar__heading {
   margin: 0 0 18px;
   color: #ffffff;
@@ -116,6 +149,115 @@
   color: #a8a8a8;
   font-size: 12px;
   line-height: 1.4;
+}
+
+.yt-translator-diagnostics {
+  margin-top: 18px;
+}
+
+.yt-translator-diagnostics__header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 10px;
+}
+
+.yt-translator-diagnostics__header .yt-translator-sidebar__subheading {
+  margin-bottom: 0;
+}
+
+.yt-translator-diagnostics__refresh {
+  min-height: 30px;
+  padding: 0 10px;
+  color: #061017;
+  background: #b7dcff;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.yt-translator-diagnostics__refresh:hover {
+  background: #d3ebff;
+}
+
+.yt-translator-diagnostics__refresh:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.yt-translator-diagnostics__summary,
+.yt-translator-diagnostics__keys {
+  margin: 0 0 10px;
+  color: #b9c9db;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.yt-translator-diagnostics__error {
+  margin: 0;
+  color: #ffd9df;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.yt-translator-diagnostics__table-wrap {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0 0 12px;
+  border: 1px solid #2b3038;
+  border-radius: 8px;
+}
+
+.yt-translator-diagnostics__table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #f1f3f5;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.yt-translator-diagnostics__table th,
+.yt-translator-diagnostics__table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid #242a33;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.yt-translator-diagnostics__table th {
+  position: sticky;
+  top: 0;
+  color: #9eb6d0;
+  background: #11151b;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.yt-translator-diagnostics__table tr:last-child td {
+  border-bottom: 0;
+}
+
+.yt-translator-diagnostics__raw {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  color: #dce7f5;
+  background: #0f1115;
+  border: 1px solid #2b3038;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .yt-translator-caption-track {

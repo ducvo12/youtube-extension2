@@ -4,6 +4,108 @@ const BACKEND_TRANSLATE_LEARNING_URL = "http://127.0.0.1:8000/api/translate/lear
 const CHAT_REQUEST_TIMEOUT_MS = 15000;
 const TRANSLATE_REQUEST_TIMEOUT_MS = 10000;
 const TRANSLATE_LEARNING_REQUEST_TIMEOUT_MS = 15000;
+const LATENCY_DIAGNOSTICS_STORAGE_KEY = "ytTranslatorLatencyDiagnostics";
+const MAX_LATENCY_DIAGNOSTICS_RECORDS = 100;
+
+function createLatencyRequestId() {
+  if (globalThis.crypto?.randomUUID) {
+    return `yttr_${globalThis.crypto.randomUUID()}`;
+  }
+
+  return `yttr_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function getNowMs() {
+  return globalThis.performance?.now ? globalThis.performance.now() : Date.now();
+}
+
+function getBackendEndpoint(backendUrl) {
+  try {
+    return new URL(backendUrl).pathname;
+  } catch (_error) {
+    return backendUrl;
+  }
+}
+
+function getTextLength(value) {
+  return typeof value === "string" ? value.trim().length : 0;
+}
+
+function getPayloadMetrics(payload, payloadJson) {
+  const videoContext = payload?.videoContext || payload?.video_context || {};
+  const history = Array.isArray(payload?.history) ? payload.history : [];
+
+  return {
+    payloadBytes: payloadJson.length,
+    textLength: getTextLength(payload?.text),
+    messageLength: getTextLength(payload?.message),
+    historyCount: history.length,
+    transcriptContextLength: getTextLength(
+      videoContext.transcriptContext || videoContext.transcript_context,
+    ),
+    selectedCaptionTextLength: getTextLength(
+      videoContext.selectedCaptionText || videoContext.selected_caption_text,
+    ),
+    titleLength: getTextLength(videoContext.title),
+    videoId: videoContext.videoId || videoContext.video_id || null,
+    sourceLanguage: payload?.sourceLanguage || payload?.source_language || null,
+    targetLanguage: payload?.targetLanguage || payload?.target_language || null,
+  };
+}
+
+function getStoredLatencyRecords(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (Array.isArray(value?.records)) {
+    return value.records;
+  }
+
+  if (Array.isArray(value?.requests)) {
+    return value.requests;
+  }
+
+  return [];
+}
+
+function saveLatencyDiagnosticsRecord(record) {
+  if (typeof chrome === "undefined" || !chrome.storage?.local) {
+    return;
+  }
+
+  chrome.storage.local.get([LATENCY_DIAGNOSTICS_STORAGE_KEY], (result) => {
+    if (chrome.runtime.lastError) {
+      return;
+    }
+
+    const currentRecords = getStoredLatencyRecords(result?.[LATENCY_DIAGNOSTICS_STORAGE_KEY]);
+    const records = [...currentRecords, record].slice(-MAX_LATENCY_DIAGNOSTICS_RECORDS);
+
+    chrome.storage.local.set({
+      [LATENCY_DIAGNOSTICS_STORAGE_KEY]: {
+        records,
+        maxRecords: MAX_LATENCY_DIAGNOSTICS_RECORDS,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+  });
+}
+
+function getResponseMetrics(body) {
+  return {
+    responseTextLength: getTextLength(body?.translatedText || body?.message),
+    chunkCount: Array.isArray(body?.chunks) ? body.chunks.length : null,
+    detectedSourceLanguage: body?.detectedSourceLanguage || null,
+    sourceLanguage: body?.sourceLanguage || null,
+    targetLanguage: body?.targetLanguage || null,
+    provider: body?.provider || body?.diagnostics?.provider || null,
+    model: body?.model || body?.diagnostics?.model || null,
+    backendTotalMs: body?.diagnostics?.backendTotalMs ?? null,
+    providerMs: body?.diagnostics?.providerMs ?? null,
+    parseMs: body?.diagnostics?.parseMs ?? null,
+  };
+}
 
 function getBackendError(response, body, rawBody, backendUrl, requestLabel) {
   const detail = body?.detail;
@@ -47,6 +149,19 @@ function sendBackendRequest({
   timeoutMs,
   buildSuccessResponse,
 }) {
+  const requestId = createLatencyRequestId();
+  const startedAt = new Date().toISOString();
+  const startMs = getNowMs();
+  const payloadJson = JSON.stringify(payload);
+  const baseRecord = {
+    requestId,
+    timestamp: startedAt,
+    type: requestLabel,
+    endpoint: getBackendEndpoint(backendUrl),
+    backendUrl,
+    timeoutMs,
+    ...getPayloadMetrics(payload, payloadJson),
+  };
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -54,8 +169,9 @@ function sendBackendRequest({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "X-YT-Translator-Request-Id": requestId,
     },
-    body: JSON.stringify(payload),
+    body: payloadJson,
     signal: controller.signal,
   })
     .then(async (response) => {
@@ -75,7 +191,17 @@ function sendBackendRequest({
         throw error;
       }
 
-      sendResponse(buildSuccessResponse(body));
+      const successResponse = buildSuccessResponse(body);
+      saveLatencyDiagnosticsRecord({
+        ...baseRecord,
+        status: "ok",
+        ok: true,
+        totalMs: Math.round(getNowMs() - startMs),
+        httpStatus: response.status,
+        rawResponseBytes: rawBody.length,
+        ...getResponseMetrics(body),
+      });
+      sendResponse(successResponse);
     })
     .catch((error) => {
       const message = error.name === "AbortError"
@@ -87,6 +213,17 @@ function sendBackendRequest({
         backendUrl,
       };
 
+      saveLatencyDiagnosticsRecord({
+        ...baseRecord,
+        status: "error",
+        ok: false,
+        totalMs: Math.round(getNowMs() - startMs),
+        errorName: error.name || null,
+        errorMessage: message,
+        errorCode: details.code || details.backendDetails?.code || null,
+        httpStatus: details.status || null,
+        backendErrorDetails: details.backendDetails || null,
+      });
       sendResponse({ ok: false, error: message, errorDetails: details });
     })
     .finally(() => {

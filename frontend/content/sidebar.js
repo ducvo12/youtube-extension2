@@ -69,6 +69,225 @@ function setSidebarOpen(nextIsOpen) {
   }
 }
 
+// Internal helper for the temporary diagnostics view.
+// Shows milliseconds compactly while keeping missing values obvious.
+function formatDiagnosticsDuration(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(1)}s`;
+  }
+
+  return `${Math.round(value)}ms`;
+}
+
+// Internal helper for the temporary diagnostics view.
+// Accepts the final planned records shape and a couple of flexible early variants.
+function getLatencyDiagnosticsRecords() {
+  const rawDiagnostics = diagnosticsSnapshot?.[LATENCY_DIAGNOSTICS_STORAGE_KEY];
+
+  if (Array.isArray(rawDiagnostics)) {
+    return rawDiagnostics;
+  }
+
+  if (Array.isArray(rawDiagnostics?.records)) {
+    return rawDiagnostics.records;
+  }
+
+  if (Array.isArray(rawDiagnostics?.requests)) {
+    return rawDiagnostics.requests;
+  }
+
+  return [];
+}
+
+// Internal helper for the temporary diagnostics view.
+// Reads all local extension storage so the panel can show both latency records and raw keys.
+function loadDiagnosticsSnapshot() {
+  const panel = document.getElementById(DIAGNOSTICS_PANEL_ID);
+
+  if (!panel || typeof chrome === "undefined" || !chrome.storage?.local) {
+    diagnosticsError = "chrome.storage.local is not available on this page.";
+    diagnosticsSnapshot = null;
+    diagnosticsIsLoading = false;
+    renderDiagnosticsPanel();
+    return;
+  }
+
+  diagnosticsIsLoading = true;
+  diagnosticsError = "";
+  renderDiagnosticsPanel();
+
+  chrome.storage.local.get(null, (result) => {
+    diagnosticsIsLoading = false;
+
+    if (chrome.runtime.lastError) {
+      diagnosticsError = chrome.runtime.lastError.message;
+      diagnosticsSnapshot = null;
+    } else {
+      diagnosticsSnapshot = result || {};
+      diagnosticsError = "";
+    }
+
+    renderDiagnosticsPanel();
+  });
+}
+
+// Internal helper for the temporary diagnostics view.
+// Renders the best available latency table plus a compact raw storage dump.
+function renderDiagnosticsPanel() {
+  const panel = document.getElementById(DIAGNOSTICS_PANEL_ID);
+
+  if (!panel) {
+    return;
+  }
+
+  panel.textContent = "";
+
+  const header = document.createElement("div");
+  header.className = "yt-translator-diagnostics__header";
+
+  const title = document.createElement("h3");
+  title.className = "yt-translator-sidebar__subheading";
+  title.textContent = "Diagnostics";
+
+  const refreshButton = document.createElement("button");
+  refreshButton.id = DIAGNOSTICS_REFRESH_BUTTON_ID;
+  refreshButton.className = "yt-translator-diagnostics__refresh";
+  refreshButton.type = "button";
+  refreshButton.textContent = diagnosticsIsLoading ? "Loading" : "Refresh";
+  refreshButton.disabled = diagnosticsIsLoading;
+  refreshButton.addEventListener("click", loadDiagnosticsSnapshot);
+
+  header.append(title, refreshButton);
+  panel.appendChild(header);
+
+  if (diagnosticsIsLoading) {
+    const status = document.createElement("p");
+    status.className = "yt-translator-sidebar__status";
+    status.textContent = "Reading chrome.storage.local...";
+    panel.appendChild(status);
+    return;
+  }
+
+  if (diagnosticsError) {
+    const error = document.createElement("p");
+    error.className = "yt-translator-diagnostics__error";
+    error.textContent = diagnosticsError;
+    panel.appendChild(error);
+    return;
+  }
+
+  const records = getLatencyDiagnosticsRecords();
+  const summary = document.createElement("div");
+  summary.className = "yt-translator-diagnostics__summary";
+  summary.textContent = `${records.length} latency record${records.length === 1 ? "" : "s"} in ${LATENCY_DIAGNOSTICS_STORAGE_KEY}`;
+  panel.appendChild(summary);
+
+  if (records.length) {
+    const tableWrap = document.createElement("div");
+    tableWrap.className = "yt-translator-diagnostics__table-wrap";
+
+    const table = document.createElement("table");
+    table.id = DIAGNOSTICS_TABLE_ID;
+    table.className = "yt-translator-diagnostics__table";
+
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+
+    for (const label of ["Time", "Type", "Total", "Backend", "Provider", "Status"]) {
+      const cell = document.createElement("th");
+      cell.textContent = label;
+      headerRow.appendChild(cell);
+    }
+
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+
+    for (const record of records.slice().reverse().slice(0, 20)) {
+      const row = document.createElement("tr");
+      const timestamp = record.timestamp || record.startedAt || record.createdAt;
+      const date = timestamp ? new Date(timestamp) : null;
+      const timeText = date && !Number.isNaN(date.valueOf())
+        ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+        : "-";
+      const type = record.type || record.requestType || record.endpoint || "-";
+      const totalMs = record.totalMs ?? record.frontendTotalMs ?? record.durationMs;
+      const backendMs = record.backendTotalMs ?? record.backend?.totalMs;
+      const providerMs = record.providerMs ?? record.backend?.providerMs;
+      const status = record.status || (record.error || record.errorCode ? "error" : "ok");
+
+      for (const value of [
+        timeText,
+        type,
+        formatDiagnosticsDuration(totalMs),
+        formatDiagnosticsDuration(backendMs),
+        formatDiagnosticsDuration(providerMs),
+        status,
+      ]) {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.appendChild(cell);
+      }
+
+      tbody.appendChild(row);
+    }
+
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    panel.appendChild(tableWrap);
+  } else {
+    const empty = document.createElement("p");
+    empty.className = "yt-translator-sidebar__status";
+    empty.textContent = "No latency records have been written yet.";
+    panel.appendChild(empty);
+  }
+
+  const storageKeys = Object.keys(diagnosticsSnapshot || {}).sort();
+  const keys = document.createElement("p");
+  keys.className = "yt-translator-diagnostics__keys";
+  keys.textContent = storageKeys.length
+    ? `Storage keys: ${storageKeys.join(", ")}`
+    : "Storage keys: none";
+  panel.appendChild(keys);
+
+  const raw = document.createElement("pre");
+  raw.className = "yt-translator-diagnostics__raw";
+  raw.textContent = JSON.stringify(diagnosticsSnapshot || {}, null, 2);
+  panel.appendChild(raw);
+}
+
+// Internal helper for the temporary diagnostics view.
+// Switches between the product sidebar and the storage-backed diagnostics display.
+function setDiagnosticsViewOpen(nextIsOpen) {
+  isDiagnosticsViewOpen = nextIsOpen;
+
+  const content = document.getElementById(DIAGNOSTICS_CONTENT_ID);
+  const panel = document.getElementById(DIAGNOSTICS_PANEL_ID);
+  const button = document.getElementById(DIAGNOSTICS_BUTTON_ID);
+
+  if (content) {
+    content.hidden = isDiagnosticsViewOpen;
+  }
+
+  if (panel) {
+    panel.hidden = !isDiagnosticsViewOpen;
+  }
+
+  if (button) {
+    button.textContent = isDiagnosticsViewOpen ? "Back" : "Diagnostics";
+    button.setAttribute("aria-pressed", String(isDiagnosticsViewOpen));
+  }
+
+  if (isDiagnosticsViewOpen) {
+    loadDiagnosticsSnapshot();
+  }
+}
+
 // Called externally by caption-river.js and player-caption-capture.js.
 // Updates the transcript status message shown in the sidebar.
 function setTranscriptStatus(message) {
@@ -237,6 +456,15 @@ function setupSidebarActions() {
     });
   }
 
+  const diagnosticsButton = document.getElementById(DIAGNOSTICS_BUTTON_ID);
+
+  if (diagnosticsButton && diagnosticsButton.dataset.initialized !== "true") {
+    diagnosticsButton.dataset.initialized = "true";
+    diagnosticsButton.addEventListener("click", () => {
+      setDiagnosticsViewOpen(!isDiagnosticsViewOpen);
+    });
+  }
+
   const button = document.getElementById(PLAYER_CAPTURE_BUTTON_ID);
 
   if (button && button.dataset.initialized !== "true") {
@@ -324,6 +552,7 @@ function createSidebar() {
     updateSidebarTitle();
     setupSidebarActions();
     renderSidebarOpenState();
+    setDiagnosticsViewOpen(isDiagnosticsViewOpen);
     renderChatRiver();
     renderSelectedCaptionPill();
     setInitialTranscriptPrompt();
@@ -348,51 +577,63 @@ function createSidebar() {
   sidebar.innerHTML = `
     <div class="yt-translator-sidebar__header">
       <div class="yt-translator-sidebar__eyebrow">Language Assistant</div>
-      <button
-        id="${SIDEBAR_TOGGLE_BUTTON_ID}"
-        class="yt-translator-sidebar__toggle"
-        type="button"
-        aria-expanded="true"
-        aria-controls="${SIDEBAR_BODY_ID}"
-      >Hide</button>
+      <div class="yt-translator-sidebar__header-actions">
+        <button
+          id="${DIAGNOSTICS_BUTTON_ID}"
+          class="yt-translator-sidebar__diagnostics-button"
+          type="button"
+          aria-pressed="false"
+        >Diagnostics</button>
+        <button
+          id="${SIDEBAR_TOGGLE_BUTTON_ID}"
+          class="yt-translator-sidebar__toggle"
+          type="button"
+          aria-expanded="true"
+          aria-controls="${SIDEBAR_BODY_ID}"
+        >Hide</button>
+      </div>
     </div>
     <div id="${SIDEBAR_BODY_ID}" class="yt-translator-sidebar__body">
-      <div class="yt-translator-sidebar__section">
-        <h3 class="yt-translator-sidebar__subheading">Current Caption</h3>
-        <p id="${TRANSCRIPT_STATUS_ID}" class="yt-translator-sidebar__status">Loading transcript...</p>
-        <label id="${CAPTION_TRACK_GROUP_ID}" class="yt-translator-caption-track" hidden>
-          <span class="yt-translator-sidebar__label">Caption Track</span>
-          <select id="${CAPTION_TRACK_SELECT_ID}" class="yt-translator-caption-track__select"></select>
-        </label>
-        <button id="${PLAYER_CAPTURE_BUTTON_ID}" class="yt-translator-sidebar__button" type="button" hidden>
-          Load transcript
-        </button>
-        <div class="yt-translator-caption-river-wrap">
-          <div class="yt-translator-sidebar__label">Now Playing</div>
-          <div id="${CAPTION_RIVER_ID}" class="yt-translator-caption-river">Current caption will appear after captions load.</div>
+      <div id="${DIAGNOSTICS_CONTENT_ID}">
+        <div class="yt-translator-sidebar__section">
+          <h3 class="yt-translator-sidebar__subheading">Current Caption</h3>
+          <p id="${TRANSCRIPT_STATUS_ID}" class="yt-translator-sidebar__status">Loading transcript...</p>
+          <label id="${CAPTION_TRACK_GROUP_ID}" class="yt-translator-caption-track" hidden>
+            <span class="yt-translator-sidebar__label">Caption Track</span>
+            <select id="${CAPTION_TRACK_SELECT_ID}" class="yt-translator-caption-track__select"></select>
+          </label>
+          <button id="${PLAYER_CAPTURE_BUTTON_ID}" class="yt-translator-sidebar__button" type="button" hidden>
+            Load transcript
+          </button>
+          <div class="yt-translator-caption-river-wrap">
+            <div class="yt-translator-sidebar__label">Now Playing</div>
+            <div id="${CAPTION_RIVER_ID}" class="yt-translator-caption-river">Current caption will appear after captions load.</div>
+          </div>
+          <div id="${SELECTED_CAPTION_ID}" class="yt-translator-selected-caption"></div>
         </div>
-        <div id="${SELECTED_CAPTION_ID}" class="yt-translator-selected-caption"></div>
+        <div class="yt-translator-sidebar__section">
+          <h3 class="yt-translator-sidebar__subheading">Ask</h3>
+          <div id="${CHAT_RIVER_ID}" class="yt-translator-chat-river" hidden></div>
+          <form id="${CHAT_FORM_ID}" class="yt-translator-chat-form">
+            <textarea
+              id="${CHAT_INPUT_ID}"
+              class="yt-translator-chat-form__input"
+              rows="3"
+              maxlength="1200"
+              placeholder="Ask about the current phrase, tone, grammar, or slang..."
+            ></textarea>
+            <button id="${CHAT_SEND_BUTTON_ID}" class="yt-translator-chat-form__send" type="submit">Send</button>
+          </form>
+        </div>
       </div>
-      <div class="yt-translator-sidebar__section">
-        <h3 class="yt-translator-sidebar__subheading">Ask</h3>
-        <div id="${CHAT_RIVER_ID}" class="yt-translator-chat-river" hidden></div>
-        <form id="${CHAT_FORM_ID}" class="yt-translator-chat-form">
-          <textarea
-            id="${CHAT_INPUT_ID}"
-            class="yt-translator-chat-form__input"
-            rows="3"
-            maxlength="1200"
-            placeholder="Ask about the current phrase, tone, grammar, or slang..."
-          ></textarea>
-          <button id="${CHAT_SEND_BUTTON_ID}" class="yt-translator-chat-form__send" type="submit">Send</button>
-        </form>
-      </div>
+      <div id="${DIAGNOSTICS_PANEL_ID}" class="yt-translator-diagnostics" hidden></div>
     </div>
   `;
 
   recommendationsColumn.prepend(sidebar);
   setupSidebarActions();
   renderSidebarOpenState();
+  setDiagnosticsViewOpen(isDiagnosticsViewOpen);
   renderChatRiver();
   renderSelectedCaptionPill();
   updateSidebarTitle();
