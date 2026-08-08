@@ -262,7 +262,6 @@ function setupSidebarActions() {
       resetTranslateState();
       window.getSelection()?.removeAllRanges();
       renderSelectedCaptionPill();
-      renderTranslateBox();
 
       if (userAllowedCaptionCapture || loadedTranscriptVideoId === getVideoId()) {
         loadTranscriptFromSelectedCaptionTrack(false);
@@ -327,7 +326,6 @@ function createSidebar() {
     renderSidebarOpenState();
     renderChatRiver();
     renderSelectedCaptionPill();
-    renderTranslateBox();
     setInitialTranscriptPrompt();
     return;
   }
@@ -373,8 +371,7 @@ function createSidebar() {
           <div class="yt-translator-sidebar__label">Now Playing</div>
           <div id="${CAPTION_RIVER_ID}" class="yt-translator-caption-river">Current caption will appear after captions load.</div>
         </div>
-        <div id="${SELECTED_CAPTION_ID}" class="yt-translator-selected-caption" hidden></div>
-        <div id="${TRANSLATE_RESULT_ID}" class="yt-translator-translate-result" hidden></div>
+        <div id="${SELECTED_CAPTION_ID}" class="yt-translator-selected-caption"></div>
       </div>
       <div class="yt-translator-sidebar__section">
         <h3 class="yt-translator-sidebar__subheading">Ask</h3>

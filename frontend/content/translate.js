@@ -1,85 +1,19 @@
-// Internal helper for submitTranslatePrompt.
-// Disables or restores the selected-caption translate control while the backend responds.
-function setTranslateControlsWaiting(isWaiting) {
-  const button = document.getElementById(TRANSLATE_BUTTON_ID);
-
-  if (button) {
-    button.disabled = isWaiting;
-    button.textContent = isWaiting ? "Translating..." : "Translate";
-  }
-}
-
 // Called externally by caption selection handlers and internally by submitTranslatePrompt.
 // Clears the selected-caption translation result and cancels older in-flight output.
 function resetTranslateState() {
   activeTranslateRequest += 1;
   isTranslateWaiting = false;
   translateResult = "";
+  translateChunks = [];
   translateError = "";
   translateErrorDetails = null;
-}
-
-// Called externally by sidebar.js and internally by submitTranslatePrompt.
-// Renders the selected-caption translation result area.
-function renderTranslateBox() {
-  const resultNode = document.getElementById(TRANSLATE_RESULT_ID);
-
-  setTranslateControlsWaiting(isTranslateWaiting);
-
-  if (!resultNode) {
-    return;
-  }
-
-  resultNode.textContent = "";
-  resultNode.hidden = !isTranslateWaiting && !translateResult && !translateError;
-  resultNode.classList.toggle("yt-translator-translate-result--error", Boolean(translateError));
-
-  if (isTranslateWaiting) {
-    resultNode.textContent = "Translating...";
-    return;
-  }
-
-  if (translateError) {
-    const message = document.createElement("p");
-    message.className = "yt-translator-translate-result__text";
-    message.textContent = translateError;
-    resultNode.appendChild(message);
-
-    if (translateErrorDetails) {
-      const details = document.createElement("details");
-      details.className = "yt-translator-translate-result__details";
-
-      const summary = document.createElement("summary");
-      summary.textContent = "Error details";
-
-      const detailsText = document.createElement("pre");
-      detailsText.textContent = JSON.stringify(translateErrorDetails, null, 2);
-
-      details.append(summary, detailsText);
-      resultNode.appendChild(details);
-    }
-
-    return;
-  }
-
-  if (translateResult) {
-    const label = document.createElement("div");
-    label.className = "yt-translator-translate-result__label";
-    label.textContent = "English";
-
-    const text = document.createElement("p");
-    text.className = "yt-translator-translate-result__text";
-    text.textContent = translateResult;
-
-    resultNode.append(label, text);
-  }
 }
 
 // Internal helper for submitTranslatePrompt.
 // Sends a translate request to the extension background script.
 function sendTranslatePromptToBackground(payload) {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({ type: "TRANSLATE_TEXT", payload }, (response) => {
+    chrome.runtime.sendMessage({ type: "TRANSLATE_WITH_BREAKDOWN", payload }, (response) => {
       const runtimeError = chrome.runtime.lastError;
 
       if (runtimeError) {
@@ -110,17 +44,18 @@ async function submitTranslatePrompt() {
 
   if (!text) {
     resetTranslateState();
-    renderTranslateBox();
+    renderSelectedCaptionPill();
     return;
   }
 
   isTranslateWaiting = true;
   translateResult = "";
+  translateChunks = [];
   translateError = "";
   translateErrorDetails = null;
   const requestId = activeTranslateRequest + 1;
   activeTranslateRequest = requestId;
-  renderTranslateBox();
+  renderSelectedCaptionPill();
 
   try {
     const response = await sendTranslatePromptToBackground({
@@ -133,6 +68,7 @@ async function submitTranslatePrompt() {
     }
 
     translateResult = response.translatedText || "The backend returned an empty translation.";
+    translateChunks = Array.isArray(response.chunks) ? response.chunks : [];
   } catch (error) {
     if (requestId !== activeTranslateRequest) {
       return;
@@ -147,7 +83,6 @@ async function submitTranslatePrompt() {
     if (requestId === activeTranslateRequest) {
       isTranslateWaiting = false;
       renderSelectedCaptionPill();
-      renderTranslateBox();
     }
   }
 }

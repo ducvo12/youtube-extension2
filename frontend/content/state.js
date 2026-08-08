@@ -21,6 +21,7 @@ let isSnappingCaptionSelection = false;
 let activeTranslateRequest = 0;
 let isTranslateWaiting = false;
 let translateResult = "";
+let translateChunks = [];
 let translateError = "";
 let translateErrorDetails = null;
 let isCaptionRiverPausedForAd = false;

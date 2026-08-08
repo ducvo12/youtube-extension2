@@ -14,7 +14,6 @@ const CHAT_INPUT_ID = "yt-translator-chat-input";
 const CHAT_SEND_BUTTON_ID = "yt-translator-chat-send";
 const SELECTED_CAPTION_ID = "yt-translator-selected-caption";
 const TRANSLATE_BUTTON_ID = "yt-translator-translate-button";
-const TRANSLATE_RESULT_ID = "yt-translator-translate-result";
 
 const CAPTION_START_LEAD_MS = 0;
 const CAPTION_END_GRACE_MS = 500;

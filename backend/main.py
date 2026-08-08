@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -81,6 +82,32 @@ class TranslateRequest(BaseModel):
 
         if "targetLanguage" in normalized and "target_language" not in normalized:
             normalized["target_language"] = normalized.pop("targetLanguage")
+
+        return normalized
+
+
+class CaptionTranslationChunk(BaseModel):
+    source: str = Field(..., min_length=1, max_length=200)
+    definition: str = Field(..., min_length=1, max_length=300)
+    natural: str | None = Field(default=None, max_length=200)
+    role: str | None = Field(default=None, max_length=80)
+    note: str | None = Field(default=None, max_length=300)
+
+
+class CaptionLearningTranslation(BaseModel):
+    translated_text: str = Field(..., min_length=1, max_length=1200)
+    chunks: list[CaptionTranslationChunk] = Field(default_factory=list, max_length=40)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_gemini_payload(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = dict(data)
+
+        if "translatedText" in normalized and "translated_text" not in normalized:
+            normalized["translated_text"] = normalized.pop("translatedText")
 
         return normalized
 
@@ -249,6 +276,77 @@ Current user question:
 """.strip()
 
 
+def build_caption_learning_translation_prompt(payload: TranslateRequest) -> str:
+    target_language = payload.target_language or get_default_translate_target_language()
+    source_language = payload.source_language or "auto"
+
+    return f"""
+You are a language-learning translation assistant embedded in a YouTube caption sidebar.
+
+Translate the selected caption into natural English, then break the original caption into
+the smallest useful learning chunks for hover definitions.
+
+Return only valid JSON. Do not wrap it in markdown.
+
+JSON schema:
+{{
+  "translatedText": "natural English translation",
+  "chunks": [
+    {{
+      "source": "exact source word or short phrase in original order",
+      "definition": "short English definition or literal meaning",
+      "natural": "the English wording this chunk maps to, or null if implied",
+      "role": "short part of speech or grammar role, or null",
+      "note": "brief learning note, or null"
+    }}
+  ]
+}}
+
+Rules:
+- Use English for translatedText, definition, natural, role, and note.
+- Use individual words when accurate.
+- Group words into short phrases when word-by-word splitting would mislead the learner.
+- Keep chunks in the same order as the source caption.
+- Each source chunk must be copied from the caption text, not translated.
+- Include all meaningful source words and attach punctuation to the nearest chunk.
+- Keep definitions and notes concise enough for a small hover popup.
+- Do not invent context beyond the caption.
+- If the source language is auto, infer it from the caption.
+
+Requested source language: {source_language}
+Requested target language: {target_language}
+
+Caption:
+{payload.text}
+""".strip()
+
+
+def parse_gemini_json_object(response_text: str) -> dict[str, Any]:
+    text = response_text.strip()
+
+    if text.startswith("```"):
+        lines = text.splitlines()
+
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+
+        text = "\n".join(lines).strip()
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}")
+
+        if start == -1 or end == -1 or end <= start:
+            raise
+
+        return json.loads(text[start:end + 1])
+
+
 def generate_gemini_chat_response(payload: ChatRequest) -> str:
     api_key = get_gemini_api_key()
 
@@ -310,6 +408,103 @@ def generate_gemini_chat_response(payload: ChatRequest) -> str:
         )
 
     return response_text
+
+
+def translate_caption_with_gemini(payload: TranslateRequest) -> dict[str, Any]:
+    api_key = get_gemini_api_key()
+
+    if not api_key:
+        raise_api_error(
+            status_code=503,
+            code="MISSING_GEMINI_API_KEY",
+            message="GEMINI_API_KEY is not configured on the backend.",
+            hint=(
+                "Create backend/.env with GEMINI_API_KEY=your_key, then restart "
+                "uvicorn so the backend reloads the environment."
+            ),
+            details={
+                "envFileExists": ENV_FILE.exists(),
+                "envFilePath": str(ENV_FILE),
+                "geminiModel": get_gemini_model(),
+            },
+        )
+
+    try:
+        from google import genai
+    except ImportError as error:
+        raise create_api_exception(
+            status_code=503,
+            code="GEMINI_SDK_MISSING",
+            message="google-genai is not installed.",
+            hint="Run pip install -r requirements.txt inside the backend virtualenv.",
+        ) from error
+
+    try:
+        with genai.Client(api_key=api_key) as client:
+            interaction = client.interactions.create(
+                model=get_gemini_model(),
+                input=build_caption_learning_translation_prompt(payload),
+            )
+    except Exception as error:
+        raise create_api_exception(
+            status_code=502,
+            code="GEMINI_REQUEST_FAILED",
+            message="Gemini request failed.",
+            hint="Check that the API key is valid and that the configured model is available for your Gemini account.",
+            details={
+                "errorType": type(error).__name__,
+                "errorMessage": str(error),
+                "geminiModel": get_gemini_model(),
+            },
+        ) from error
+
+    response_text = getattr(interaction, "output_text", "").strip()
+
+    if not response_text:
+        raise_api_error(
+            status_code=502,
+            code="GEMINI_EMPTY_RESPONSE",
+            message="Gemini returned an empty response.",
+            details={
+                "geminiModel": get_gemini_model(),
+            },
+        )
+
+    try:
+        parsed = CaptionLearningTranslation.model_validate(
+            parse_gemini_json_object(response_text)
+        )
+    except Exception as error:
+        raise create_api_exception(
+            status_code=502,
+            code="GEMINI_INVALID_TRANSLATION_JSON",
+            message="Gemini returned translation data that could not be parsed.",
+            hint="Try the request again, or adjust the caption learning translation prompt.",
+            details={
+                "errorType": type(error).__name__,
+                "errorMessage": str(error),
+                "geminiModel": get_gemini_model(),
+                "rawResponse": response_text[:1200],
+            },
+        ) from error
+
+    return {
+        "translatedText": parsed.translated_text,
+        "chunks": [
+            {
+                "source": chunk.source,
+                "definition": chunk.definition,
+                "natural": chunk.natural,
+                "role": chunk.role,
+                "note": chunk.note,
+            }
+            for chunk in parsed.chunks
+        ],
+        "sourceLanguage": payload.source_language or "auto",
+        "targetLanguage": payload.target_language or get_default_translate_target_language(),
+        "provider": "google-gemini",
+        "model": get_gemini_model(),
+    }
 
 
 def translate_text_with_google(payload: TranslateRequest) -> dict[str, Any]:
@@ -450,6 +645,11 @@ async def chat(payload: ChatRequest) -> dict[str, Any]:
 @app.post("/api/translate")
 async def translate_text(payload: TranslateRequest) -> dict[str, Any]:
     return await run_in_threadpool(translate_text_with_google, payload)
+
+
+@app.post("/api/translate/learning")
+async def translate_caption_learning(payload: TranslateRequest) -> dict[str, Any]:
+    return await run_in_threadpool(translate_caption_with_gemini, payload)
 
 
 @app.post("/api/test/explain")

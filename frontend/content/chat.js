@@ -75,6 +75,64 @@ function scrollChatRiverToBottom() {
   }
 }
 
+function createSelectedCaptionClearButton() {
+  const clearButton = document.createElement("button");
+  clearButton.className = "yt-translator-selected-caption__clear";
+  clearButton.type = "button";
+  clearButton.textContent = "x";
+  clearButton.setAttribute("aria-label", "Clear selected caption text");
+
+  clearButton.addEventListener("click", () => {
+    selectedCaptionText = "";
+    resetTranslateState();
+    window.getSelection()?.removeAllRanges();
+    renderSelectedCaptionPill();
+    document.getElementById(CHAT_INPUT_ID)?.focus();
+  });
+
+  return clearButton;
+}
+
+function createSelectedCaptionChunkNode(chunk) {
+  const chunkNode = document.createElement("span");
+  chunkNode.className = "yt-translator-selected-caption__chunk";
+  chunkNode.tabIndex = 0;
+  chunkNode.textContent = chunk.source;
+
+  const tooltip = document.createElement("span");
+  tooltip.className = "yt-translator-selected-caption__tooltip";
+  tooltip.setAttribute("role", "tooltip");
+
+  const definition = document.createElement("span");
+  definition.className = "yt-translator-selected-caption__tooltip-definition";
+  definition.textContent = chunk.definition || "No definition returned.";
+  tooltip.appendChild(definition);
+
+  if (chunk.natural) {
+    const natural = document.createElement("span");
+    natural.className = "yt-translator-selected-caption__tooltip-meta";
+    natural.textContent = `Maps to: ${chunk.natural}`;
+    tooltip.appendChild(natural);
+  }
+
+  if (chunk.role) {
+    const role = document.createElement("span");
+    role.className = "yt-translator-selected-caption__tooltip-meta";
+    role.textContent = chunk.role;
+    tooltip.appendChild(role);
+  }
+
+  if (chunk.note) {
+    const note = document.createElement("span");
+    note.className = "yt-translator-selected-caption__tooltip-note";
+    note.textContent = chunk.note;
+    tooltip.appendChild(note);
+  }
+
+  chunkNode.appendChild(tooltip);
+  return chunkNode;
+}
+
 // Called externally by content.js.
 // Renders the selected caption pill shown above the chat input.
 // Gets called when user highlights captions in caption river (highlight state changes)
@@ -86,19 +144,35 @@ function renderSelectedCaptionPill() {
   }
 
   contextNode.textContent = "";
-  contextNode.hidden = !selectedCaptionText;
+  contextNode.hidden = false;
+  contextNode.classList.toggle("yt-translator-selected-caption--empty", !selectedCaptionText);
+  contextNode.classList.toggle(
+    "yt-translator-selected-caption--translated",
+    Boolean(isTranslateWaiting || translateResult || translateError)
+  );
 
   if (!selectedCaptionText) {
+    const label = document.createElement("span");
+    label.className = "yt-translator-selected-caption__label";
+    label.textContent = "Tip";
+
+    const text = document.createElement("span");
+    text.className = "yt-translator-selected-caption__text yt-translator-selected-caption__text--empty";
+    text.textContent = "Highlight captions to select";
+
+    contextNode.append(label, text);
     return;
   }
+
+  const header = document.createElement("div");
+  header.className = "yt-translator-selected-caption__header";
 
   const label = document.createElement("span");
   label.className = "yt-translator-selected-caption__label";
   label.textContent = "Selected";
 
-  const text = document.createElement("span");
-  text.className = "yt-translator-selected-caption__text";
-  text.textContent = selectedCaptionText;
+  const actions = document.createElement("div");
+  actions.className = "yt-translator-selected-caption__actions";
 
   const translateButton = document.createElement("button");
   translateButton.id = TRANSLATE_BUTTON_ID;
@@ -109,25 +183,63 @@ function renderSelectedCaptionPill() {
   translateButton.setAttribute("aria-label", "Translate selected caption text");
   translateButton.addEventListener("click", submitTranslatePrompt);
 
-  // Button to remove the selected caption pill
-  const clearButton = document.createElement("button");
-  clearButton.className = "yt-translator-selected-caption__clear";
-  clearButton.type = "button";
-  clearButton.textContent = "x";
-  clearButton.setAttribute("aria-label", "Clear selected caption text");
+  actions.append(translateButton, createSelectedCaptionClearButton());
+  header.append(label, actions);
 
-  // Attaches itself for future clicks
-  clearButton.addEventListener("click", () => {
-    selectedCaptionText = "";
-    resetTranslateState();
-    window.getSelection()?.removeAllRanges();
-    renderSelectedCaptionPill();
-    renderTranslateBox();
-    document.getElementById(CHAT_INPUT_ID)?.focus();
-  });
+  const sourceBlock = document.createElement("div");
+  sourceBlock.className = "yt-translator-selected-caption__source";
 
-  contextNode.append(label, text, translateButton, clearButton);
-  renderTranslateBox();
+  const sourceText = document.createElement("div");
+  sourceText.className = "yt-translator-selected-caption__source-text";
+
+  const chunks = translateChunks.filter((chunk) => chunk?.source);
+
+  if (chunks.length) {
+    sourceText.classList.add("yt-translator-selected-caption__source-text--chunked");
+
+    for (const chunk of chunks) {
+      sourceText.appendChild(createSelectedCaptionChunkNode(chunk));
+    }
+  } else {
+    sourceText.textContent = selectedCaptionText;
+  }
+
+  sourceBlock.appendChild(sourceText);
+  contextNode.append(header, sourceBlock);
+
+  if (isTranslateWaiting || translateResult || translateError) {
+    const translationBlock = document.createElement("div");
+    translationBlock.className = "yt-translator-selected-caption__translation";
+    translationBlock.classList.toggle("yt-translator-selected-caption__translation--error", Boolean(translateError));
+
+    const translationLabel = document.createElement("div");
+    translationLabel.className = "yt-translator-selected-caption__label";
+    translationLabel.textContent = "English";
+
+    const translationText = document.createElement("p");
+    translationText.className = "yt-translator-selected-caption__translation-text";
+    translationText.textContent = isTranslateWaiting
+      ? "Translating..."
+      : translateError || translateResult;
+
+    translationBlock.append(translationLabel, translationText);
+
+    if (translateErrorDetails) {
+      const details = document.createElement("details");
+      details.className = "yt-translator-selected-caption__details";
+
+      const summary = document.createElement("summary");
+      summary.textContent = "Error details";
+
+      const detailsText = document.createElement("pre");
+      detailsText.textContent = JSON.stringify(translateErrorDetails, null, 2);
+
+      details.append(summary, detailsText);
+      translationBlock.appendChild(details);
+    }
+
+    contextNode.appendChild(translationBlock);
+  }
 }
 
 // Called externally by content.js and internally by submitChatPrompt.
