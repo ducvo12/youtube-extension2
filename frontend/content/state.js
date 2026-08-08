@@ -31,6 +31,7 @@ let isDiagnosticsViewOpen = false;
 let diagnosticsSnapshot = null;
 let diagnosticsError = "";
 let diagnosticsIsLoading = false;
+let diagnosticsCopyMessage = "";
 let hasLoadedSidebarOpenState = false;
 let activePlayerCaptionCaptureVideoId = null;
 let pendingPlayerCaptionCaptureVideoId = null;

@@ -1,11 +1,12 @@
 import json
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
 # pyrefly: ignore [missing-import]
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 from starlette.concurrency import run_in_threadpool
@@ -21,10 +22,15 @@ BASE_DIR = Path(__file__).resolve().parent
 if load_dotenv:
     load_dotenv(BASE_DIR / ".env")
 
-DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
+DEFAULT_GEMINI_LEARNING_MODEL = "gemini-3.5-flash-lite"
+DEFAULT_GEMINI_THINKING_LEVEL = "minimal"
+GEMINI_CHAT_MAX_OUTPUT_TOKENS = 700
+GEMINI_LEARNING_MAX_OUTPUT_TOKENS = 900
 DEFAULT_TRANSLATE_TARGET_LANGUAGE = "en"
 DEFAULT_TRANSLATE_LOCATION = "global"
 ENV_FILE = BASE_DIR / ".env"
+VALID_GEMINI_THINKING_LEVELS = {"minimal", "low", "medium", "high"}
 
 
 app = FastAPI(
@@ -206,7 +212,38 @@ def raise_api_error(
 
 
 def get_gemini_model() -> str:
-    return os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+    return os.getenv("GEMINI_CHAT_MODEL", "").strip() or DEFAULT_GEMINI_MODEL
+
+
+def get_gemini_learning_model() -> str:
+    return os.getenv("GEMINI_LEARNING_MODEL", "").strip() or DEFAULT_GEMINI_LEARNING_MODEL
+
+
+def get_gemini_thinking_level() -> str:
+    thinking_level = (
+        os.getenv("GEMINI_THINKING_LEVEL", "").strip().lower()
+        or DEFAULT_GEMINI_THINKING_LEVEL
+    )
+
+    if thinking_level not in VALID_GEMINI_THINKING_LEVELS:
+        return DEFAULT_GEMINI_THINKING_LEVEL
+
+    return thinking_level
+
+
+def get_gemini_generation_config(max_output_tokens: int) -> dict[str, Any]:
+    return {
+        "max_output_tokens": max_output_tokens,
+        "thinking_level": get_gemini_thinking_level(),
+    }
+
+
+def get_caption_learning_response_format() -> dict[str, Any]:
+    return {
+        "type": "text",
+        "mime_type": "application/json",
+        "schema": CaptionLearningTranslation.model_json_schema(),
+    }
 
 
 def get_gemini_api_key() -> str:
@@ -226,6 +263,43 @@ def get_default_translate_target_language() -> str:
         os.getenv("GOOGLE_TRANSLATE_TARGET_LANGUAGE", "").strip()
         or DEFAULT_TRANSLATE_TARGET_LANGUAGE
     )
+
+
+def elapsed_ms(start_time: float) -> int:
+    return round((time.perf_counter() - start_time) * 1000)
+
+
+def get_request_id(request: Request) -> str | None:
+    return request.headers.get("X-YT-Translator-Request-Id")
+
+
+def build_backend_diagnostics(
+    request: Request,
+    *,
+    endpoint: str,
+    provider: str,
+    backend_start_time: float,
+    provider_ms: int | None = None,
+    parse_ms: int | None = None,
+    model: str | None = None,
+    text_length: int | None = None,
+) -> dict[str, Any]:
+    diagnostics: dict[str, Any] = {
+        "requestId": get_request_id(request),
+        "endpoint": endpoint,
+        "provider": provider,
+        "backendTotalMs": elapsed_ms(backend_start_time),
+        "providerMs": provider_ms,
+        "parseMs": parse_ms,
+        "textLength": text_length,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    if model:
+        diagnostics["model"] = model
+        diagnostics["thinkingLevel"] = get_gemini_thinking_level()
+
+    return diagnostics
 
 
 def format_chat_history(history: list[ChatHistoryMessage]) -> str:
@@ -286,24 +360,10 @@ You are a language-learning translation assistant embedded in a YouTube caption 
 Translate the selected caption into natural English, then break the original caption into
 the smallest useful learning chunks for hover definitions.
 
-Return only valid JSON. Do not wrap it in markdown.
-
-JSON schema:
-{{
-  "translatedText": "natural English translation",
-  "chunks": [
-    {{
-      "source": "exact source word or short phrase in original order",
-      "definition": "short English definition or literal meaning",
-      "natural": "the English wording this chunk maps to, or null if implied",
-      "role": "short part of speech or grammar role, or null",
-      "note": "brief learning note, or null"
-    }}
-  ]
-}}
+Return only JSON matching the configured response schema. Do not wrap it in markdown.
 
 Rules:
-- Use English for translatedText, definition, natural, role, and note.
+- Use English for the translated caption, definitions, natural mappings, roles, and notes.
 - Use individual words when accurate.
 - Group words into short phrases when word-by-word splitting would mislead the learner.
 - Keep chunks in the same order as the source caption.
@@ -347,8 +407,9 @@ def parse_gemini_json_object(response_text: str) -> dict[str, Any]:
         return json.loads(text[start:end + 1])
 
 
-def generate_gemini_chat_response(payload: ChatRequest) -> str:
+def generate_gemini_chat_response(payload: ChatRequest) -> dict[str, Any]:
     api_key = get_gemini_api_key()
+    model = get_gemini_model()
 
     if not api_key:
         raise_api_error(
@@ -362,7 +423,8 @@ def generate_gemini_chat_response(payload: ChatRequest) -> str:
             details={
                 "envFileExists": ENV_FILE.exists(),
                 "envFilePath": str(ENV_FILE),
-                "geminiModel": get_gemini_model(),
+                "geminiModel": model,
+                "geminiThinkingLevel": get_gemini_thinking_level(),
             },
         )
 
@@ -377,11 +439,17 @@ def generate_gemini_chat_response(payload: ChatRequest) -> str:
         ) from error
 
     try:
+        prompt = build_chat_prompt(payload)
+        provider_start_time = time.perf_counter()
         with genai.Client(api_key=api_key) as client:
             interaction = client.interactions.create(
-                model=get_gemini_model(),
-                input=build_chat_prompt(payload),
+                model=model,
+                input=prompt,
+                generation_config=get_gemini_generation_config(
+                    GEMINI_CHAT_MAX_OUTPUT_TOKENS
+                ),
             )
+        provider_ms = elapsed_ms(provider_start_time)
     except Exception as error:
         raise create_api_exception(
             status_code=502,
@@ -391,7 +459,8 @@ def generate_gemini_chat_response(payload: ChatRequest) -> str:
             details={
                 "errorType": type(error).__name__,
                 "errorMessage": str(error),
-                "geminiModel": get_gemini_model(),
+                "geminiModel": model,
+                "geminiThinkingLevel": get_gemini_thinking_level(),
             },
         ) from error
 
@@ -403,15 +472,24 @@ def generate_gemini_chat_response(payload: ChatRequest) -> str:
             code="GEMINI_EMPTY_RESPONSE",
             message="Gemini returned an empty response.",
             details={
-                "geminiModel": get_gemini_model(),
+                "geminiModel": model,
+                "geminiThinkingLevel": get_gemini_thinking_level(),
             },
         )
 
-    return response_text
+    return {
+        "message": response_text,
+        "model": model,
+        "providerMs": provider_ms,
+        "promptLength": len(prompt),
+        "thinkingLevel": get_gemini_thinking_level(),
+        "maxOutputTokens": GEMINI_CHAT_MAX_OUTPUT_TOKENS,
+    }
 
 
 def translate_caption_with_gemini(payload: TranslateRequest) -> dict[str, Any]:
     api_key = get_gemini_api_key()
+    model = get_gemini_learning_model()
 
     if not api_key:
         raise_api_error(
@@ -425,7 +503,8 @@ def translate_caption_with_gemini(payload: TranslateRequest) -> dict[str, Any]:
             details={
                 "envFileExists": ENV_FILE.exists(),
                 "envFilePath": str(ENV_FILE),
-                "geminiModel": get_gemini_model(),
+                "geminiModel": model,
+                "geminiThinkingLevel": get_gemini_thinking_level(),
             },
         )
 
@@ -440,11 +519,18 @@ def translate_caption_with_gemini(payload: TranslateRequest) -> dict[str, Any]:
         ) from error
 
     try:
+        prompt = build_caption_learning_translation_prompt(payload)
+        provider_start_time = time.perf_counter()
         with genai.Client(api_key=api_key) as client:
             interaction = client.interactions.create(
-                model=get_gemini_model(),
-                input=build_caption_learning_translation_prompt(payload),
+                model=model,
+                input=prompt,
+                generation_config=get_gemini_generation_config(
+                    GEMINI_LEARNING_MAX_OUTPUT_TOKENS
+                ),
+                response_format=get_caption_learning_response_format(),
             )
+        provider_ms = elapsed_ms(provider_start_time)
     except Exception as error:
         raise create_api_exception(
             status_code=502,
@@ -454,7 +540,8 @@ def translate_caption_with_gemini(payload: TranslateRequest) -> dict[str, Any]:
             details={
                 "errorType": type(error).__name__,
                 "errorMessage": str(error),
-                "geminiModel": get_gemini_model(),
+                "geminiModel": model,
+                "geminiThinkingLevel": get_gemini_thinking_level(),
             },
         ) from error
 
@@ -466,14 +553,17 @@ def translate_caption_with_gemini(payload: TranslateRequest) -> dict[str, Any]:
             code="GEMINI_EMPTY_RESPONSE",
             message="Gemini returned an empty response.",
             details={
-                "geminiModel": get_gemini_model(),
+                "geminiModel": model,
+                "geminiThinkingLevel": get_gemini_thinking_level(),
             },
         )
 
+    parse_start_time = time.perf_counter()
     try:
         parsed = CaptionLearningTranslation.model_validate(
             parse_gemini_json_object(response_text)
         )
+        parse_ms = elapsed_ms(parse_start_time)
     except Exception as error:
         raise create_api_exception(
             status_code=502,
@@ -483,7 +573,8 @@ def translate_caption_with_gemini(payload: TranslateRequest) -> dict[str, Any]:
             details={
                 "errorType": type(error).__name__,
                 "errorMessage": str(error),
-                "geminiModel": get_gemini_model(),
+                "geminiModel": model,
+                "geminiThinkingLevel": get_gemini_thinking_level(),
                 "rawResponse": response_text[:1200],
             },
         ) from error
@@ -503,7 +594,13 @@ def translate_caption_with_gemini(payload: TranslateRequest) -> dict[str, Any]:
         "sourceLanguage": payload.source_language or "auto",
         "targetLanguage": payload.target_language or get_default_translate_target_language(),
         "provider": "google-gemini",
-        "model": get_gemini_model(),
+        "model": model,
+        "thinkingLevel": get_gemini_thinking_level(),
+        "providerMs": provider_ms,
+        "parseMs": parse_ms,
+        "promptLength": len(prompt),
+        "maxOutputTokens": GEMINI_LEARNING_MAX_OUTPUT_TOKENS,
+        "structuredOutput": True,
     }
 
 
@@ -549,8 +646,10 @@ def translate_text_with_google(payload: TranslateRequest) -> dict[str, Any]:
         request["source_language_code"] = source_language
 
     try:
+        provider_start_time = time.perf_counter()
         client = translate.TranslationServiceClient()
         response = client.translate_text(request=request)
+        provider_ms = elapsed_ms(provider_start_time)
     except Exception as error:
         raise create_api_exception(
             status_code=502,
@@ -584,6 +683,7 @@ def translate_text_with_google(payload: TranslateRequest) -> dict[str, Any]:
         "sourceLanguage": source_language or "auto",
         "targetLanguage": target_language,
         "provider": "google-cloud-translate-v3",
+        "providerMs": provider_ms,
     }
 
 
@@ -609,6 +709,9 @@ async def debug_config() -> dict[str, Any]:
     return {
         "geminiApiKeyConfigured": bool(get_gemini_api_key()),
         "geminiModel": get_gemini_model(),
+        "geminiLearningModel": get_gemini_learning_model(),
+        "geminiThinkingLevel": get_gemini_thinking_level(),
+        "legacyGeminiModelConfigured": bool(os.getenv("GEMINI_MODEL", "").strip()),
         "googleCloudProjectConfigured": bool(get_google_cloud_project()),
         "translateLocation": get_translate_location(),
         "translateTargetLanguage": get_default_translate_target_language(),
@@ -633,23 +736,77 @@ async def echo(payload: EchoRequest) -> dict[str, Any]:
 
 
 @app.post("/api/chat")
-async def chat(payload: ChatRequest) -> dict[str, Any]:
-    message = await run_in_threadpool(generate_gemini_chat_response, payload)
+async def chat(payload: ChatRequest, request: Request) -> dict[str, Any]:
+    backend_start_time = time.perf_counter()
+    result = await run_in_threadpool(generate_gemini_chat_response, payload)
 
     return {
-        "message": message,
-        "model": get_gemini_model(),
+        "message": result["message"],
+        "model": result["model"],
+        "thinkingLevel": result["thinkingLevel"],
+        "diagnostics": build_backend_diagnostics(
+            request,
+            endpoint="/api/chat",
+            provider="google-gemini",
+            backend_start_time=backend_start_time,
+            provider_ms=result["providerMs"],
+            model=result["model"],
+            text_length=len(payload.message),
+        ) | {
+            "promptLength": result["promptLength"],
+            "maxOutputTokens": result["maxOutputTokens"],
+            "historyCount": len(payload.history),
+            "transcriptContextLength": len(
+                payload.video_context.transcript_context
+                if payload.video_context and payload.video_context.transcript_context
+                else ""
+            ),
+        },
     }
 
 
 @app.post("/api/translate")
-async def translate_text(payload: TranslateRequest) -> dict[str, Any]:
-    return await run_in_threadpool(translate_text_with_google, payload)
+async def translate_text(payload: TranslateRequest, request: Request) -> dict[str, Any]:
+    backend_start_time = time.perf_counter()
+    result = await run_in_threadpool(translate_text_with_google, payload)
+
+    return result | {
+        "diagnostics": build_backend_diagnostics(
+            request,
+            endpoint="/api/translate",
+            provider=result["provider"],
+            backend_start_time=backend_start_time,
+            provider_ms=result["providerMs"],
+            text_length=len(payload.text),
+        ),
+    }
 
 
 @app.post("/api/translate/learning")
-async def translate_caption_learning(payload: TranslateRequest) -> dict[str, Any]:
-    return await run_in_threadpool(translate_caption_with_gemini, payload)
+async def translate_caption_learning(
+    payload: TranslateRequest,
+    request: Request,
+) -> dict[str, Any]:
+    backend_start_time = time.perf_counter()
+    result = await run_in_threadpool(translate_caption_with_gemini, payload)
+
+    return result | {
+        "diagnostics": build_backend_diagnostics(
+            request,
+            endpoint="/api/translate/learning",
+            provider=result["provider"],
+            backend_start_time=backend_start_time,
+            provider_ms=result["providerMs"],
+            parse_ms=result["parseMs"],
+            model=result["model"],
+            text_length=len(payload.text),
+        ) | {
+            "promptLength": result["promptLength"],
+            "maxOutputTokens": result["maxOutputTokens"],
+            "structuredOutput": result["structuredOutput"],
+            "chunkCount": len(result["chunks"]),
+        },
+    }
 
 
 @app.post("/api/test/explain")

@@ -7,6 +7,7 @@ const DIAGNOSTICS_CONTENT_ID = "yt-translator-diagnostics-content";
 const DIAGNOSTICS_PANEL_ID = "yt-translator-diagnostics-panel";
 const DIAGNOSTICS_TABLE_ID = "yt-translator-diagnostics-table";
 const DIAGNOSTICS_REFRESH_BUTTON_ID = "yt-translator-diagnostics-refresh";
+const DIAGNOSTICS_COPY_BUTTON_ID = "yt-translator-diagnostics-copy";
 const LATENCY_DIAGNOSTICS_STORAGE_KEY = "ytTranslatorLatencyDiagnostics";
 const TITLE_ID = "yt-translator-video-title";
 const TRANSCRIPT_STATUS_ID = "yt-translator-transcript-status";

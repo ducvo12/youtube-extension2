@@ -167,6 +167,13 @@
   margin-bottom: 0;
 }
 
+.yt-translator-diagnostics__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .yt-translator-diagnostics__refresh {
   min-height: 30px;
   padding: 0 10px;
@@ -191,7 +198,8 @@
 }
 
 .yt-translator-diagnostics__summary,
-.yt-translator-diagnostics__keys {
+.yt-translator-diagnostics__keys,
+.yt-translator-diagnostics__copy-status {
   margin: 0 0 10px;
   color: #b9c9db;
   overflow-wrap: anywhere;

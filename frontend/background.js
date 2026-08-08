@@ -101,9 +101,14 @@ function getResponseMetrics(body) {
     targetLanguage: body?.targetLanguage || null,
     provider: body?.provider || body?.diagnostics?.provider || null,
     model: body?.model || body?.diagnostics?.model || null,
+    thinkingLevel: body?.thinkingLevel || body?.diagnostics?.thinkingLevel || null,
     backendTotalMs: body?.diagnostics?.backendTotalMs ?? null,
     providerMs: body?.diagnostics?.providerMs ?? null,
     parseMs: body?.diagnostics?.parseMs ?? null,
+    backendRequestId: body?.diagnostics?.requestId || null,
+    promptLength: body?.diagnostics?.promptLength ?? null,
+    maxOutputTokens: body?.diagnostics?.maxOutputTokens ?? null,
+    structuredOutput: body?.diagnostics?.structuredOutput ?? null,
   };
 }
 

@@ -12,7 +12,9 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Set `GEMINI_API_KEY` in `.env`. `GEMINI_MODEL` defaults to `gemini-3.5-flash`.
+Set `GEMINI_API_KEY` in `.env`. Chat uses `GEMINI_CHAT_MODEL`, caption breakdowns
+use `GEMINI_LEARNING_MODEL`, and both default to `gemini-3.5-flash-lite`.
+`GEMINI_THINKING_LEVEL` defaults to `minimal` for lower-latency sidebar requests.
 
 For quick translation, set `GOOGLE_CLOUD_PROJECT` in `.env`. `GOOGLE_TRANSLATE_LOCATION`
 defaults to `global`, and `GOOGLE_TRANSLATE_TARGET_LANGUAGE` defaults to `en`.

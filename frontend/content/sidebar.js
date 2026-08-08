@@ -104,6 +104,74 @@ function getLatencyDiagnosticsRecords() {
 }
 
 // Internal helper for the temporary diagnostics view.
+// Builds a compact report that can be pasted into chat without the full storage dump first.
+function buildDiagnosticsReport() {
+  const records = getLatencyDiagnosticsRecords();
+  const latestRecords = records.slice(-20);
+  const lines = [
+    "## YouTube Translator Latency Diagnostics",
+    "",
+    `Generated: ${new Date().toISOString()}`,
+    `Record count: ${records.length}`,
+    "",
+    "Recent requests:",
+  ];
+
+  if (!latestRecords.length) {
+    lines.push("- No latency records captured yet.");
+  }
+
+  for (const record of latestRecords) {
+    lines.push([
+      `- ${record.type || record.endpoint || "request"}`,
+      `total=${formatDiagnosticsDuration(record.totalMs ?? record.frontendTotalMs ?? record.durationMs)}`,
+      `backend=${formatDiagnosticsDuration(record.backendTotalMs ?? record.backend?.totalMs)}`,
+      `provider=${formatDiagnosticsDuration(record.providerMs ?? record.backend?.providerMs)}`,
+      `status=${record.status || (record.error || record.errorCode ? "error" : "ok")}`,
+      `model=${record.model || "-"}`,
+      `thinking=${record.thinkingLevel || "-"}`,
+      `textLength=${record.textLength ?? record.messageLength ?? "-"}`,
+      `promptLength=${record.promptLength ?? "-"}`,
+      `maxOutput=${record.maxOutputTokens ?? "-"}`,
+      `structured=${record.structuredOutput ?? "-"}`,
+      `requestId=${record.requestId || "-"}`,
+    ].join(" "));
+  }
+
+  lines.push("", "Raw storage:", JSON.stringify(diagnosticsSnapshot || {}, null, 2));
+
+  return lines.join("\n");
+}
+
+// Internal helper for the temporary diagnostics view.
+// Copies the compact diagnostics report, with a textarea fallback for older contexts.
+async function copyDiagnosticsReport() {
+  const report = buildDiagnosticsReport();
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(report);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = report;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+
+    diagnosticsCopyMessage = "Copied diagnostics report.";
+  } catch (error) {
+    diagnosticsCopyMessage = `Unable to copy: ${error.message}`;
+  }
+
+  renderDiagnosticsPanel();
+}
+
+// Internal helper for the temporary diagnostics view.
 // Reads all local extension storage so the panel can show both latency records and raw keys.
 function loadDiagnosticsSnapshot() {
   const panel = document.getElementById(DIAGNOSTICS_PANEL_ID);
@@ -118,6 +186,7 @@ function loadDiagnosticsSnapshot() {
 
   diagnosticsIsLoading = true;
   diagnosticsError = "";
+  diagnosticsCopyMessage = "";
   renderDiagnosticsPanel();
 
   chrome.storage.local.get(null, (result) => {
@@ -161,7 +230,19 @@ function renderDiagnosticsPanel() {
   refreshButton.disabled = diagnosticsIsLoading;
   refreshButton.addEventListener("click", loadDiagnosticsSnapshot);
 
-  header.append(title, refreshButton);
+  const copyButton = document.createElement("button");
+  copyButton.id = DIAGNOSTICS_COPY_BUTTON_ID;
+  copyButton.className = "yt-translator-diagnostics__refresh";
+  copyButton.type = "button";
+  copyButton.textContent = "Copy";
+  copyButton.disabled = diagnosticsIsLoading;
+  copyButton.addEventListener("click", copyDiagnosticsReport);
+
+  const actions = document.createElement("div");
+  actions.className = "yt-translator-diagnostics__actions";
+  actions.append(copyButton, refreshButton);
+
+  header.append(title, actions);
   panel.appendChild(header);
 
   if (diagnosticsIsLoading) {
@@ -186,6 +267,13 @@ function renderDiagnosticsPanel() {
   summary.textContent = `${records.length} latency record${records.length === 1 ? "" : "s"} in ${LATENCY_DIAGNOSTICS_STORAGE_KEY}`;
   panel.appendChild(summary);
 
+  if (diagnosticsCopyMessage) {
+    const copyStatus = document.createElement("p");
+    copyStatus.className = "yt-translator-diagnostics__copy-status";
+    copyStatus.textContent = diagnosticsCopyMessage;
+    panel.appendChild(copyStatus);
+  }
+
   if (records.length) {
     const tableWrap = document.createElement("div");
     tableWrap.className = "yt-translator-diagnostics__table-wrap";
@@ -197,7 +285,7 @@ function renderDiagnosticsPanel() {
     const thead = document.createElement("thead");
     const headerRow = document.createElement("tr");
 
-    for (const label of ["Time", "Type", "Total", "Backend", "Provider", "Status"]) {
+    for (const label of ["Time", "Type", "Total", "Backend", "Provider", "Model", "Thinking", "Status"]) {
       const cell = document.createElement("th");
       cell.textContent = label;
       headerRow.appendChild(cell);
@@ -219,6 +307,8 @@ function renderDiagnosticsPanel() {
       const totalMs = record.totalMs ?? record.frontendTotalMs ?? record.durationMs;
       const backendMs = record.backendTotalMs ?? record.backend?.totalMs;
       const providerMs = record.providerMs ?? record.backend?.providerMs;
+      const model = record.model || "-";
+      const thinkingLevel = record.thinkingLevel || "-";
       const status = record.status || (record.error || record.errorCode ? "error" : "ok");
 
       for (const value of [
@@ -227,6 +317,8 @@ function renderDiagnosticsPanel() {
         formatDiagnosticsDuration(totalMs),
         formatDiagnosticsDuration(backendMs),
         formatDiagnosticsDuration(providerMs),
+        model,
+        thinkingLevel,
         status,
       ]) {
         const cell = document.createElement("td");
