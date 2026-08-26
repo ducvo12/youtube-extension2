@@ -26,7 +26,7 @@ DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite"
 DEFAULT_GEMINI_LEARNING_MODEL = "gemini-3.5-flash-lite"
 DEFAULT_GEMINI_THINKING_LEVEL = "minimal"
 GEMINI_CHAT_MAX_OUTPUT_TOKENS = 700
-GEMINI_LEARNING_MAX_OUTPUT_TOKENS = 900
+GEMINI_LEARNING_MAX_OUTPUT_TOKENS = 550
 DEFAULT_TRANSLATE_TARGET_LANGUAGE = "en"
 DEFAULT_TRANSLATE_LOCATION = "global"
 ENV_FILE = BASE_DIR / ".env"
@@ -93,16 +93,16 @@ class TranslateRequest(BaseModel):
 
 
 class CaptionTranslationChunk(BaseModel):
-    source: str = Field(..., min_length=1, max_length=200)
-    definition: str = Field(..., min_length=1, max_length=300)
-    natural: str | None = Field(default=None, max_length=200)
-    role: str | None = Field(default=None, max_length=80)
-    note: str | None = Field(default=None, max_length=300)
+    source: str = Field(..., min_length=1, max_length=120)
+    definition: str = Field(..., min_length=1, max_length=140)
+    natural: str | None = Field(default=None, max_length=100)
+    role: str | None = Field(default=None, max_length=40)
+    note: str | None = Field(default=None, max_length=140)
 
 
 class CaptionLearningTranslation(BaseModel):
     translated_text: str = Field(..., min_length=1, max_length=1200)
-    chunks: list[CaptionTranslationChunk] = Field(default_factory=list, max_length=40)
+    chunks: list[CaptionTranslationChunk] = Field(default_factory=list, max_length=8)
 
     @model_validator(mode="before")
     @classmethod
@@ -349,36 +349,35 @@ Current user question:
 {payload.message}
 """.strip()
 
+#######################################
 
+# PROMPT HERE
 def build_caption_learning_translation_prompt(payload: TranslateRequest) -> str:
     target_language = payload.target_language or get_default_translate_target_language()
     source_language = payload.source_language or "auto"
 
     return f"""
-You are a language-learning translation assistant embedded in a YouTube caption sidebar.
-
-Translate the selected caption into natural English, then break the original caption into
-the smallest useful learning chunks for hover definitions.
-
-Return only JSON matching the configured response schema. Do not wrap it in markdown.
+You translate YouTube captions for language learners.
+Return only JSON matching the configured response schema.
 
 Rules:
-- Use English for the translated caption, definitions, natural mappings, roles, and notes.
-- Use individual words when accurate.
-- Group words into short phrases when word-by-word splitting would mislead the learner.
-- Keep chunks in the same order as the source caption.
-- Each source chunk must be copied from the caption text, not translated.
-- Include all meaningful source words and attach punctuation to the nearest chunk.
-- Keep definitions and notes concise enough for a small hover popup.
-- Do not invent context beyond the caption.
-- If the source language is auto, infer it from the caption.
+- Translate the caption into natural English.
+- Prefer 3-6 chunks; never use more than 8 chunks.
+- Prefer phrase chunks; split a word only if it is useful alone.
+- Keep chunk order, copy source text exactly, and cover meaningful words.
+- Keep definitions under 12 words.
+- Use notes only for idioms, slang, register, or grammar.
+- Infer source language if auto. Do not invent context.
 
-Requested source language: {source_language}
-Requested target language: {target_language}
+Source language: {source_language}
+Target language: {target_language}
 
 Caption:
 {payload.text}
 """.strip()
+
+
+#######################################
 
 
 def parse_gemini_json_object(response_text: str) -> dict[str, Any]:
