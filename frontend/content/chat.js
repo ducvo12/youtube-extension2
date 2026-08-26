@@ -33,6 +33,98 @@ function createChatErrorDetailsNode(errorDetails) {
   return detailsNode;
 }
 
+// Internal helper for renderChatRiver.
+// Converts a small Markdown subset into DOM nodes without interpreting model output as HTML.
+function renderAssistantMarkdown(markdown) {
+  const fragment = document.createDocumentFragment();
+  const lines = String(markdown || "").replace(/\r\n?/g, "\n").split("\n");
+  let paragraphLines = [];
+  let currentList = null;
+
+  function flushParagraph() {
+    if (!paragraphLines.length) {
+      return;
+    }
+
+    const paragraph = document.createElement("p");
+    appendInlineMarkdown(paragraph, paragraphLines.join(" "));
+    fragment.appendChild(paragraph);
+    paragraphLines = [];
+  }
+
+  function closeList() {
+    currentList = null;
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      flushParagraph();
+      closeList();
+      continue;
+    }
+
+    const bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
+
+    if (bulletMatch) {
+      flushParagraph();
+
+      if (!currentList) {
+        currentList = document.createElement("ul");
+        fragment.appendChild(currentList);
+      }
+
+      const item = document.createElement("li");
+      appendInlineMarkdown(item, bulletMatch[1]);
+      currentList.appendChild(item);
+      continue;
+    }
+
+    closeList();
+    paragraphLines.push(trimmed);
+  }
+
+  flushParagraph();
+
+  return fragment;
+}
+
+// Internal helper for renderAssistantMarkdown.
+// Supports the formatting the assistant usually returns: bold, italics, and inline code.
+function appendInlineMarkdown(parent, text) {
+  const pattern = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(pattern)) {
+    if (match.index > lastIndex) {
+      parent.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+    }
+
+    const token = match[0];
+
+    if (token.startsWith("**")) {
+      const strong = document.createElement("strong");
+      strong.textContent = token.slice(2, -2);
+      parent.appendChild(strong);
+    } else if (token.startsWith("*")) {
+      const emphasis = document.createElement("em");
+      emphasis.textContent = token.slice(1, -1);
+      parent.appendChild(emphasis);
+    } else if (token.startsWith("`")) {
+      const code = document.createElement("code");
+      code.textContent = token.slice(1, -1);
+      parent.appendChild(code);
+    }
+
+    lastIndex = match.index + token.length;
+  }
+
+  if (lastIndex < text.length) {
+    parent.appendChild(document.createTextNode(text.slice(lastIndex)));
+  }
+}
+
 // Internal helper for buildChatPayload.
 // Collects nearby transcript text to send as video context with the chat prompt.
 function getTranscriptContextPreview() {
@@ -274,9 +366,18 @@ function renderChatRiver() {
     role.className = "yt-translator-chat-message__role";
     role.textContent = message.role === "user" ? "You" : "Assistant";
 
-    const content = document.createElement("p");
+    const content = document.createElement("div");
     content.className = "yt-translator-chat-message__content";
-    content.textContent = message.status === "sending" ? "Thinking..." : message.content;
+
+    if (message.status === "sending") {
+      content.classList.add("yt-translator-chat-message__content--plain");
+      content.textContent = "Thinking...";
+    } else if (message.role === "assistant") {
+      content.appendChild(renderAssistantMarkdown(message.content));
+    } else {
+      content.classList.add("yt-translator-chat-message__content--plain");
+      content.textContent = message.content;
+    }
 
     messageNode.append(role, content);
 
