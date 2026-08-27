@@ -1,15 +1,15 @@
 // Internal helper for updateCaptionRiver.
 // Finds which transcript segment matches the current playback time.
 function getActiveCaptionIndex(currentTimeMs) {
-  if (!currentTranscriptSegments.length) {
+  if (!ytTranslatorState.transcript.segments.length) {
     return -1;
   }
 
   const lookupMs = currentTimeMs + CAPTION_START_LEAD_MS;
   let activeIndex = -1;
 
-  for (let index = 0; index < currentTranscriptSegments.length; index += 1) {
-    const segment = currentTranscriptSegments[index];
+  for (let index = 0; index < ytTranslatorState.transcript.segments.length; index += 1) {
+    const segment = ytTranslatorState.transcript.segments[index];
     const startMs = segment.startMs || 0;
 
     if (startMs > lookupMs) {
@@ -23,8 +23,8 @@ function getActiveCaptionIndex(currentTimeMs) {
     return -1;
   }
 
-  const segment = currentTranscriptSegments[activeIndex];
-  const nextSegment = currentTranscriptSegments[activeIndex + 1];
+  const segment = ytTranslatorState.transcript.segments[activeIndex];
+  const nextSegment = ytTranslatorState.transcript.segments[activeIndex + 1];
   const startMs = segment.startMs || 0;
   const durationMs = segment.durationMs || 0;
   const durationEndMs = durationMs > 0 ? startMs + durationMs : startMs + 4000;
@@ -43,11 +43,11 @@ function getActiveCaptionIndex(currentTimeMs) {
 // Internal helper for getDisplayCaptionIndex.
 // Keeps a caption index inside the available transcript segment range.
 function clampCaptionIndex(index) {
-  if (!currentTranscriptSegments.length) {
+  if (!ytTranslatorState.transcript.segments.length) {
     return -1;
   }
 
-  return Math.max(0, Math.min(index, currentTranscriptSegments.length - 1));
+  return Math.max(0, Math.min(index, ytTranslatorState.transcript.segments.length - 1));
 }
 
 // Internal helper for updateCaptionRiver.
@@ -103,7 +103,7 @@ function appendCaptionText(line, text, segmentIndex) {
 // Internal helper for scheduleCaptionSelectionSnap.
 // Expands a caption text selection to whole words and stores it for chat context.
 function snapCaptionSelectionToWords() {
-  if (isSnappingCaptionSelection) {
+  if (ytTranslatorState.selection.isSnapping) {
     return;
   }
 
@@ -134,18 +134,18 @@ function snapCaptionSelectionToWords() {
   snappedRange.setStartBefore(selectedWords[0]);
   snappedRange.setEndAfter(selectedWords[selectedWords.length - 1]);
 
-  isSnappingCaptionSelection = true;
+  ytTranslatorState.selection.isSnapping = true;
   selection.removeAllRanges();
   selection.addRange(snappedRange);
-  isSnappingCaptionSelection = false;
+  ytTranslatorState.selection.isSnapping = false;
 
   const nextSelectedCaptionText = snappedRange.toString().replace(/\s+/g, " ").trim();
 
-  if (nextSelectedCaptionText !== selectedCaptionText) {
+  if (nextSelectedCaptionText !== ytTranslatorState.selection.captionText) {
     resetTranslateState();
   }
 
-  selectedCaptionText = nextSelectedCaptionText;
+  ytTranslatorState.selection.captionText = nextSelectedCaptionText;
   renderSelectedCaptionPill();
 }
 
@@ -167,15 +167,15 @@ function renderCaptionRiver(activeIndex) {
 
   riverNode.textContent = "";
 
-  if (!currentTranscriptSegments.length) {
+  if (!ytTranslatorState.transcript.segments.length) {
     riverNode.textContent = "Current caption will appear after captions load.";
-    currentCaptionIndex = -1;
+    ytTranslatorState.transcript.currentCaptionIndex = -1;
     return;
   }
 
   if (activeIndex < 0) {
     riverNode.textContent = "Waiting for playback...";
-    currentCaptionIndex = -1;
+    ytTranslatorState.transcript.currentCaptionIndex = -1;
     return;
   }
 
@@ -187,12 +187,12 @@ function renderCaptionRiver(activeIndex) {
     line.className = index === activeIndex
       ? "yt-translator-caption-river__line yt-translator-caption-river__line--active"
       : "yt-translator-caption-river__line";
-    appendCaptionText(line, currentTranscriptSegments[index].text, index);
+    appendCaptionText(line, ytTranslatorState.transcript.segments[index].text, index);
     fragment.appendChild(line);
   }
 
   riverNode.appendChild(fragment);
-  currentCaptionIndex = activeIndex;
+  ytTranslatorState.transcript.currentCaptionIndex = activeIndex;
 }
 
 // Internal helper for startCaptionRiverUpdates.
@@ -201,9 +201,9 @@ function updateCaptionRiver() {
   const riverNode = document.getElementById(CAPTION_RIVER_ID);
 
   if (isAdShowing()) {
-    if (!isCaptionRiverPausedForAd) {
-      isCaptionRiverPausedForAd = true;
-      currentCaptionIndex = -1;
+    if (!ytTranslatorState.captionRiver.isPausedForAd) {
+      ytTranslatorState.captionRiver.isPausedForAd = true;
+      ytTranslatorState.transcript.currentCaptionIndex = -1;
       setTranscriptStatus("Ad playing. Caption river paused until the video resumes.");
 
       if (riverNode) {
@@ -214,11 +214,11 @@ function updateCaptionRiver() {
     return;
   }
 
-  if (isCaptionRiverPausedForAd) {
-    isCaptionRiverPausedForAd = false;
-    currentCaptionIndex = -1;
+  if (ytTranslatorState.captionRiver.isPausedForAd) {
+    ytTranslatorState.captionRiver.isPausedForAd = false;
+    ytTranslatorState.transcript.currentCaptionIndex = -1;
 
-    if (currentTranscriptSegments.length) {
+    if (ytTranslatorState.transcript.segments.length) {
       setTranscriptStatus("Captions loaded.");
     }
   }
@@ -232,7 +232,7 @@ function updateCaptionRiver() {
 
   const activeIndex = getDisplayCaptionIndex(getActiveCaptionIndex(currentTimeMs));
 
-  if (activeIndex !== currentCaptionIndex) {
+  if (activeIndex !== ytTranslatorState.transcript.currentCaptionIndex) {
     renderCaptionRiver(activeIndex);
   }
 }
@@ -240,17 +240,17 @@ function updateCaptionRiver() {
 // Internal helper for renderTranscript.
 // Starts the recurring timer that keeps the caption river synced with playback.
 function startCaptionRiverUpdates() {
-  window.clearInterval(captionRiverTimer);
+  window.clearInterval(ytTranslatorState.captionRiver.timer);
   updateCaptionRiver();
-  captionRiverTimer = window.setInterval(updateCaptionRiver, 250);
+  ytTranslatorState.captionRiver.timer = window.setInterval(updateCaptionRiver, 250);
 }
 
 // Called externally by content.js after transcript segments are loaded.
 // Stores transcript segments and starts rendering the caption river.
 // Called when new video (and new transcript) are loaded
 function renderTranscript(segments, trackLabel = "") {
-  currentTranscriptSegments = segments;
-  currentCaptionIndex = -1;
+  ytTranslatorState.transcript.segments = segments;
+  ytTranslatorState.transcript.currentCaptionIndex = -1;
 
   if (!segments.length) {
     setTranscriptStatus("No transcript text found.");

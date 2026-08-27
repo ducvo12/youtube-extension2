@@ -39,35 +39,35 @@
 // Internal helper for captureNextPlayerCaptionRequest.
 // Injects the page-context script that observes YouTube caption network requests.
 function ensurePageCaptionCapturerInjected() {
-  if (pageCaptionCapturerReady) {
-    return pageCaptionCapturerReady;
+  if (ytTranslatorState.playerCapture.pageCapturerReady) {
+    return ytTranslatorState.playerCapture.pageCapturerReady;
   }
 
-  if (pageCaptionCapturerInjected || window.__ytTranslatorCaptionCapturerRequested) {
-    pageCaptionCapturerInjected = true;
-    pageCaptionCapturerReady = Promise.resolve();
-    return pageCaptionCapturerReady;
+  if (ytTranslatorState.playerCapture.pageCapturerInjected || window.__ytTranslatorCaptionCapturerRequested) {
+    ytTranslatorState.playerCapture.pageCapturerInjected = true;
+    ytTranslatorState.playerCapture.pageCapturerReady = Promise.resolve();
+    return ytTranslatorState.playerCapture.pageCapturerReady;
   }
 
   window.__ytTranslatorCaptionCapturerRequested = true;
-  pageCaptionCapturerReady = new Promise((resolve, reject) => {
+  ytTranslatorState.playerCapture.pageCapturerReady = new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.id = "yt-translator-page-caption-capturer";
     script.src = chrome.runtime.getURL("page-caption-capturer.js");
     script.onload = () => {
       script.remove();
-      pageCaptionCapturerInjected = true;
+      ytTranslatorState.playerCapture.pageCapturerInjected = true;
       resolve();
     };
     script.onerror = () => {
-      pageCaptionCapturerReady = null;
+      ytTranslatorState.playerCapture.pageCapturerReady = null;
       window.__ytTranslatorCaptionCapturerRequested = false;
       reject(new Error("Unable to inject page caption capturer"));
     };
     (document.head || document.documentElement).appendChild(script);
   });
 
-  return pageCaptionCapturerReady;
+  return ytTranslatorState.playerCapture.pageCapturerReady;
 }
 
 // Internal helper for loadTranscriptFromPlayerCaptions.
@@ -76,7 +76,7 @@ async function captureNextPlayerCaptionRequest(expectedVideoId, onCaptureStarted
   await ensurePageCaptionCapturerInjected();
 
   return new Promise((resolve, reject) => {
-    const requestId = `${Date.now()}-${playerCaptionCaptureRequestId += 1}`;
+    const requestId = `${Date.now()}-${ytTranslatorState.playerCapture.requestId += 1}`;
     let settled = false;
     let captureStarted = false;
 
@@ -180,7 +180,7 @@ function wait(ms) {
 function waitForAdToFinishBeforeCaptionCapture(videoId, requestId, attempt) {
   const button = document.getElementById(PLAYER_CAPTURE_BUTTON_ID);
 
-  pendingPlayerCaptionCaptureVideoId = videoId;
+  ytTranslatorState.playerCapture.pendingVideoId = videoId;
   setPlayerCaptureButtonVisible(false);
   setTranscriptStatus("Ad playing. Transcript will load after the video resumes.");
 
@@ -188,12 +188,12 @@ function waitForAdToFinishBeforeCaptionCapture(videoId, requestId, attempt) {
     button.disabled = true;
   }
 
-  window.clearTimeout(pendingPlayerCaptionCaptureTimer);
-  pendingPlayerCaptionCaptureTimer = window.setTimeout(() => {
-    pendingPlayerCaptionCaptureTimer = null;
+  window.clearTimeout(ytTranslatorState.playerCapture.pendingTimer);
+  ytTranslatorState.playerCapture.pendingTimer = window.setTimeout(() => {
+    ytTranslatorState.playerCapture.pendingTimer = null;
 
-    if (requestId !== activeTranscriptRequest || videoId !== getVideoId()) {
-      pendingPlayerCaptionCaptureVideoId = null;
+    if (requestId !== ytTranslatorState.transcript.activeRequest || videoId !== getVideoId()) {
+      ytTranslatorState.playerCapture.pendingVideoId = null;
 
       if (button) {
         button.disabled = false;
@@ -207,7 +207,7 @@ function waitForAdToFinishBeforeCaptionCapture(videoId, requestId, attempt) {
       return;
     }
 
-    pendingPlayerCaptionCaptureVideoId = null;
+    ytTranslatorState.playerCapture.pendingVideoId = null;
     loadTranscriptFromPlayerCaptions(true, attempt, requestId);
   }, 500);
 }
@@ -248,13 +248,15 @@ async function restorePlayerCaptionState(wasEnabled) {
 // Internal helper for loadTranscriptFromSelectedCaptionTrack.
 // Finds the currently selected normalized caption track.
 function getSelectedCaptionTrack() {
-  return availableCaptionTracks.find((track) => track.key === selectedCaptionTrackKey) || null;
+  return ytTranslatorState.captionTracks.available.find(
+    (track) => track.key === ytTranslatorState.captionTracks.selectedKey,
+  ) || null;
 }
 
 // Internal helper for loadTranscriptFromPlayerCaptions.
 // Matches a captured YouTube caption URL to the normalized source track in the selector.
 function getCaptionTrackForCaptionUrl(captionUrl) {
-  if (!availableCaptionTracks.length && typeof refreshAvailableCaptionTracks === "function") {
+  if (!ytTranslatorState.captionTracks.available.length && typeof refreshAvailableCaptionTracks === "function") {
     refreshAvailableCaptionTracks();
   }
 
@@ -265,10 +267,12 @@ function getCaptionTrackForCaptionUrl(captionUrl) {
     return null;
   }
 
-  return availableCaptionTracks.find((track) => track.identity === identity)
-    || availableCaptionTracks.find((track) => track.trackUrl === trackUrl)
-    || availableCaptionTracks.find((track) => track.sourceIdentity === getCaptionSourceIdentity(captionUrl)
-      && !isTranslatedCaptionTrack(track))
+  return ytTranslatorState.captionTracks.available.find((track) => track.identity === identity)
+    || ytTranslatorState.captionTracks.available.find((track) => track.trackUrl === trackUrl)
+    || ytTranslatorState.captionTracks.available.find(
+      (track) => track.sourceIdentity === getCaptionSourceIdentity(captionUrl)
+        && !isTranslatedCaptionTrack(track),
+    )
     || null;
 }
 
@@ -288,7 +292,7 @@ function getUntranslatedAutoGeneratedTrack(captionUrl, matchedTrack) {
     return null;
   }
 
-  return availableCaptionTracks.find((track) => track.sourceIdentity === capturedTrack.sourceIdentity
+  return ytTranslatorState.captionTracks.available.find((track) => track.sourceIdentity === capturedTrack.sourceIdentity
       && !isTranslatedCaptionTrack(track))
     || createSourceCaptionTrackFromUrl(captionUrl, matchedTrack?.label || capturedTrack.label);
 }
@@ -296,14 +300,14 @@ function getUntranslatedAutoGeneratedTrack(captionUrl, matchedTrack) {
 // Internal helper for getCaptionTrackFetchBaseUrl.
 // Reuses token/client params from the player-generated caption URL when selected tracks omit them.
 function applyCapturedCaptionRequestParams(url) {
-  if (!lastCapturedPlayerCaptionUrl) {
+  if (!ytTranslatorState.playerCapture.lastCapturedCaptionUrl) {
     return;
   }
 
   let capturedUrl = null;
 
   try {
-    capturedUrl = new URL(lastCapturedPlayerCaptionUrl, window.location.href);
+    capturedUrl = new URL(ytTranslatorState.playerCapture.lastCapturedCaptionUrl, window.location.href);
   } catch (_error) {
     return;
   }
@@ -412,7 +416,7 @@ async function parseOrRefetchCapturedTranscript(captured) {
 // Internal helper for loadTranscriptFromSelectedCaptionTrack.
 // Captures one player caption URL so selected-track fetches can reuse YouTube's current request params.
 async function primeCaptionTrackRequestParams(videoId, captionRequestId, trackLabel) {
-  if (lastCapturedPlayerCaptionUrl) {
+  if (ytTranslatorState.playerCapture.lastCapturedCaptionUrl) {
     return;
   }
 
@@ -428,17 +432,17 @@ async function primeCaptionTrackRequestParams(videoId, captionRequestId, trackLa
 
   const wasEnabled = isCaptionButtonEnabled(captionButton);
 
-  activePlayerCaptionCaptureVideoId = videoId;
+  ytTranslatorState.playerCapture.activeVideoId = videoId;
   setTranscriptStatus(`Preparing ${trackLabel} captions...`);
 
   try {
     const captured = await captureNextPlayerCaptionRequest(videoId, () => triggerPlayerCaptionLoad(wasEnabled));
 
-    if (captionRequestId !== activeTranscriptRequest || videoId !== getVideoId()) {
+    if (captionRequestId !== ytTranslatorState.transcript.activeRequest || videoId !== getVideoId()) {
       return;
     }
 
-    lastCapturedPlayerCaptionUrl = captured.url;
+    ytTranslatorState.playerCapture.lastCapturedCaptionUrl = captured.url;
 
     if (typeof refreshAvailableCaptionTracks === "function") {
       refreshAvailableCaptionTracks();
@@ -446,7 +450,7 @@ async function primeCaptionTrackRequestParams(videoId, captionRequestId, trackLa
     }
   } finally {
     await restorePlayerCaptionState(wasEnabled);
-    activePlayerCaptionCaptureVideoId = null;
+    ytTranslatorState.playerCapture.activeVideoId = null;
   }
 }
 
@@ -455,7 +459,8 @@ async function primeCaptionTrackRequestParams(videoId, captionRequestId, trackLa
 async function loadTranscriptFromSelectedCaptionTrack(isAutomatic = false, options = {}) {
   const videoId = getVideoId();
   const track = getSelectedCaptionTrack();
-  const shouldPrimeWithPlayerCapture = options.primeWithPlayerCapture && !lastCapturedPlayerCaptionUrl;
+  const shouldPrimeWithPlayerCapture = options.primeWithPlayerCapture
+    && !ytTranslatorState.playerCapture.lastCapturedCaptionUrl;
 
   if (!track) {
     await loadTranscriptFromPlayerCaptions(isAutomatic);
@@ -467,15 +472,18 @@ async function loadTranscriptFromSelectedCaptionTrack(isAutomatic = false, optio
     return;
   }
 
-  if (loadedTranscriptVideoId === videoId && loadedTranscriptTrackKey === track.key) {
+  if (
+    ytTranslatorState.transcript.loadedVideoId === videoId
+      && ytTranslatorState.transcript.loadedTrackKey === track.key
+  ) {
     return;
   }
 
   if (!isAutomatic) {
-    userAllowedCaptionCapture = true;
+    ytTranslatorState.playerCapture.userAllowedCaptionCapture = true;
   }
 
-  const captionRequestId = activeTranscriptRequest += 1;
+  const captionRequestId = ytTranslatorState.transcript.activeRequest += 1;
   const button = document.getElementById(PLAYER_CAPTURE_BUTTON_ID);
   const select = document.getElementById(CAPTION_TRACK_SELECT_ID);
 
@@ -503,19 +511,19 @@ async function loadTranscriptFromSelectedCaptionTrack(isAutomatic = false, optio
       }
     }
 
-    if (captionRequestId !== activeTranscriptRequest || videoId !== getVideoId()) {
+    if (captionRequestId !== ytTranslatorState.transcript.activeRequest || videoId !== getVideoId()) {
       return;
     }
 
     const refreshedTrack = getSelectedCaptionTrack() || track;
     const segments = await fetchCaptionTrackTranscript(refreshedTrack);
 
-    if (captionRequestId !== activeTranscriptRequest || videoId !== getVideoId()) {
+    if (captionRequestId !== ytTranslatorState.transcript.activeRequest || videoId !== getVideoId()) {
       return;
     }
 
-    loadedTranscriptVideoId = videoId;
-    loadedTranscriptTrackKey = refreshedTrack.key;
+    ytTranslatorState.transcript.loadedVideoId = videoId;
+    ytTranslatorState.transcript.loadedTrackKey = refreshedTrack.key;
     renderTranscript(segments, refreshedTrack.label);
   } catch (error) {
     console.error("Unable to load selected caption track", error);
@@ -527,7 +535,7 @@ async function loadTranscriptFromSelectedCaptionTrack(isAutomatic = false, optio
     }
 
     if (select) {
-      select.disabled = availableCaptionTracks.length <= 1;
+      select.disabled = ytTranslatorState.captionTracks.available.length <= 1;
     }
   }
 }
@@ -542,20 +550,20 @@ async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0
     return;
   }
 
-  if (loadedTranscriptVideoId === videoId
-    || activePlayerCaptionCaptureVideoId === videoId
-    || (pendingPlayerCaptionCaptureVideoId === videoId && requestId === null)) {
+  if (ytTranslatorState.transcript.loadedVideoId === videoId
+    || ytTranslatorState.playerCapture.activeVideoId === videoId
+    || (ytTranslatorState.playerCapture.pendingVideoId === videoId && requestId === null)) {
     return;
   }
 
-  const captionRequestId = requestId || (activeTranscriptRequest += 1);
+  const captionRequestId = requestId || (ytTranslatorState.transcript.activeRequest += 1);
 
-  if (captionRequestId !== activeTranscriptRequest) {
+  if (captionRequestId !== ytTranslatorState.transcript.activeRequest) {
     return;
   }
 
   if (!isAutomatic) {
-    userAllowedCaptionCapture = true;
+    ytTranslatorState.playerCapture.userAllowedCaptionCapture = true;
   }
 
   const button = document.getElementById(PLAYER_CAPTURE_BUTTON_ID);
@@ -565,12 +573,12 @@ async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0
     return;
   }
 
-  activePlayerCaptionCaptureVideoId = videoId;
+  ytTranslatorState.playerCapture.activeVideoId = videoId;
 
   const captionButton = getCaptionButton();
 
   if (!captionButton) {
-    activePlayerCaptionCaptureVideoId = null;
+    ytTranslatorState.playerCapture.activeVideoId = null;
 
     if (isAutomatic && attempt < 20 && videoId === getVideoId()) {
       setTranscriptStatus("Waiting for YouTube captions control...");
@@ -595,7 +603,7 @@ async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0
   try {
     const captured = await captureNextPlayerCaptionRequest(videoId, () => triggerPlayerCaptionLoad(wasEnabled));
 
-    if (captionRequestId !== activeTranscriptRequest || videoId !== getVideoId()) {
+    if (captionRequestId !== ytTranslatorState.transcript.activeRequest || videoId !== getVideoId()) {
       return;
     }
 
@@ -604,7 +612,7 @@ async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0
       return;
     }
 
-    lastCapturedPlayerCaptionUrl = captured.url;
+    ytTranslatorState.playerCapture.lastCapturedCaptionUrl = captured.url;
 
     if (typeof refreshAvailableCaptionTracks === "function") {
       refreshAvailableCaptionTracks();
@@ -620,16 +628,16 @@ async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0
       throw new Error("Captured YouTube caption response, but no transcript text was found.");
     }
 
-    loadedTranscriptVideoId = videoId;
+    ytTranslatorState.transcript.loadedVideoId = videoId;
     const loadedTrack = untranslatedTrack || capturedTrack;
 
     if (loadedTrack) {
-      selectedCaptionTrackKey = loadedTrack.key;
-      loadedTranscriptTrackKey = loadedTrack.key;
+      ytTranslatorState.captionTracks.selectedKey = loadedTrack.key;
+      ytTranslatorState.transcript.loadedTrackKey = loadedTrack.key;
       renderCaptionTrackSelector();
       renderTranscript(segments, loadedTrack.label);
     } else {
-      loadedTranscriptTrackKey = "";
+      ytTranslatorState.transcript.loadedTrackKey = "";
       renderTranscript(segments);
     }
   } catch (error) {
@@ -638,7 +646,7 @@ async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0
     setPlayerCaptureButtonVisible(true);
   } finally {
     await restorePlayerCaptionState(wasEnabled);
-    activePlayerCaptionCaptureVideoId = null;
+    ytTranslatorState.playerCapture.activeVideoId = null;
 
     if (button) {
       button.disabled = false;

@@ -13,22 +13,22 @@ function updateSidebarTitle() {
 // Called externally by content.js.
 // Loads the persisted sidebar open state before the first render.
 function initializeSidebarOpenState(callback) {
-  if (hasLoadedSidebarOpenState) {
+  if (ytTranslatorState.sidebar.hasLoadedOpenState) {
     callback();
     return;
   }
 
   if (typeof chrome === "undefined" || !chrome.storage?.local) {
-    hasLoadedSidebarOpenState = true;
+    ytTranslatorState.sidebar.hasLoadedOpenState = true;
     callback();
     return;
   }
 
   chrome.storage.local.get([SIDEBAR_OPEN_STORAGE_KEY], (result) => {
-    hasLoadedSidebarOpenState = true;
+    ytTranslatorState.sidebar.hasLoadedOpenState = true;
 
     if (!chrome.runtime.lastError && typeof result[SIDEBAR_OPEN_STORAGE_KEY] === "boolean") {
-      isSidebarOpen = result[SIDEBAR_OPEN_STORAGE_KEY];
+      ytTranslatorState.sidebar.isOpen = result[SIDEBAR_OPEN_STORAGE_KEY];
     }
 
     callback();
@@ -46,26 +46,26 @@ function renderSidebarOpenState() {
     return;
   }
 
-  sidebar.classList.toggle("yt-translator-sidebar--collapsed", !isSidebarOpen);
-  body.hidden = !isSidebarOpen;
+  sidebar.classList.toggle("yt-translator-sidebar--collapsed", !ytTranslatorState.sidebar.isOpen);
+  body.hidden = !ytTranslatorState.sidebar.isOpen;
   toggleButton.textContent = "";
-  toggleButton.classList.toggle("yt-translator-sidebar__toggle--open", isSidebarOpen);
-  toggleButton.setAttribute("aria-expanded", String(isSidebarOpen));
+  toggleButton.classList.toggle("yt-translator-sidebar__toggle--open", ytTranslatorState.sidebar.isOpen);
+  toggleButton.setAttribute("aria-expanded", String(ytTranslatorState.sidebar.isOpen));
   toggleButton.setAttribute(
     "aria-label",
-    isSidebarOpen ? "Hide language assistant sidebar" : "Open language assistant sidebar",
+    ytTranslatorState.sidebar.isOpen ? "Hide language assistant sidebar" : "Open language assistant sidebar",
   );
-  toggleButton.title = isSidebarOpen ? "Hide sidebar" : "Open sidebar";
+  toggleButton.title = ytTranslatorState.sidebar.isOpen ? "Hide sidebar" : "Open sidebar";
 }
 
 // Internal helper for setupSidebarActions.
 // Updates and persists the sidebar open state.
 function setSidebarOpen(nextIsOpen) {
-  isSidebarOpen = nextIsOpen;
+  ytTranslatorState.sidebar.isOpen = nextIsOpen;
   renderSidebarOpenState();
 
   if (typeof chrome !== "undefined" && chrome.storage?.local) {
-    chrome.storage.local.set({ [SIDEBAR_OPEN_STORAGE_KEY]: isSidebarOpen });
+    chrome.storage.local.set({ [SIDEBAR_OPEN_STORAGE_KEY]: ytTranslatorState.sidebar.isOpen });
   }
 }
 
@@ -86,7 +86,7 @@ function formatDiagnosticsDuration(value) {
 // Internal helper for the temporary diagnostics view.
 // Accepts the final planned records shape and a couple of flexible early variants.
 function getLatencyDiagnosticsRecords() {
-  const rawDiagnostics = diagnosticsSnapshot?.[LATENCY_DIAGNOSTICS_STORAGE_KEY];
+  const rawDiagnostics = ytTranslatorState.diagnostics.snapshot?.[LATENCY_DIAGNOSTICS_STORAGE_KEY];
 
   if (Array.isArray(rawDiagnostics)) {
     return rawDiagnostics;
@@ -138,7 +138,7 @@ function buildDiagnosticsReport() {
     ].join(" "));
   }
 
-  lines.push("", "Raw storage:", JSON.stringify(diagnosticsSnapshot || {}, null, 2));
+  lines.push("", "Raw storage:", JSON.stringify(ytTranslatorState.diagnostics.snapshot || {}, null, 2));
 
   return lines.join("\n");
 }
@@ -163,9 +163,9 @@ async function copyDiagnosticsReport() {
       textarea.remove();
     }
 
-    diagnosticsCopyMessage = "Copied diagnostics report.";
+    ytTranslatorState.diagnostics.copyMessage = "Copied diagnostics report.";
   } catch (error) {
-    diagnosticsCopyMessage = `Unable to copy: ${error.message}`;
+    ytTranslatorState.diagnostics.copyMessage = `Unable to copy: ${error.message}`;
   }
 
   renderDiagnosticsPanel();
@@ -177,27 +177,27 @@ function loadDiagnosticsSnapshot() {
   const panel = document.getElementById(DIAGNOSTICS_PANEL_ID);
 
   if (!panel || typeof chrome === "undefined" || !chrome.storage?.local) {
-    diagnosticsError = "chrome.storage.local is not available on this page.";
-    diagnosticsSnapshot = null;
-    diagnosticsIsLoading = false;
+    ytTranslatorState.diagnostics.error = "chrome.storage.local is not available on this page.";
+    ytTranslatorState.diagnostics.snapshot = null;
+    ytTranslatorState.diagnostics.isLoading = false;
     renderDiagnosticsPanel();
     return;
   }
 
-  diagnosticsIsLoading = true;
-  diagnosticsError = "";
-  diagnosticsCopyMessage = "";
+  ytTranslatorState.diagnostics.isLoading = true;
+  ytTranslatorState.diagnostics.error = "";
+  ytTranslatorState.diagnostics.copyMessage = "";
   renderDiagnosticsPanel();
 
   chrome.storage.local.get(null, (result) => {
-    diagnosticsIsLoading = false;
+    ytTranslatorState.diagnostics.isLoading = false;
 
     if (chrome.runtime.lastError) {
-      diagnosticsError = chrome.runtime.lastError.message;
-      diagnosticsSnapshot = null;
+      ytTranslatorState.diagnostics.error = chrome.runtime.lastError.message;
+      ytTranslatorState.diagnostics.snapshot = null;
     } else {
-      diagnosticsSnapshot = result || {};
-      diagnosticsError = "";
+      ytTranslatorState.diagnostics.snapshot = result || {};
+      ytTranslatorState.diagnostics.error = "";
     }
 
     renderDiagnosticsPanel();
@@ -226,8 +226,8 @@ function renderDiagnosticsPanel() {
   refreshButton.id = DIAGNOSTICS_REFRESH_BUTTON_ID;
   refreshButton.className = "yt-translator-diagnostics__refresh";
   refreshButton.type = "button";
-  refreshButton.textContent = diagnosticsIsLoading ? "Loading" : "Refresh";
-  refreshButton.disabled = diagnosticsIsLoading;
+  refreshButton.textContent = ytTranslatorState.diagnostics.isLoading ? "Loading" : "Refresh";
+  refreshButton.disabled = ytTranslatorState.diagnostics.isLoading;
   refreshButton.addEventListener("click", loadDiagnosticsSnapshot);
 
   const copyButton = document.createElement("button");
@@ -235,7 +235,7 @@ function renderDiagnosticsPanel() {
   copyButton.className = "yt-translator-diagnostics__refresh";
   copyButton.type = "button";
   copyButton.textContent = "Copy";
-  copyButton.disabled = diagnosticsIsLoading;
+  copyButton.disabled = ytTranslatorState.diagnostics.isLoading;
   copyButton.addEventListener("click", copyDiagnosticsReport);
 
   const actions = document.createElement("div");
@@ -245,7 +245,7 @@ function renderDiagnosticsPanel() {
   header.append(title, actions);
   panel.appendChild(header);
 
-  if (diagnosticsIsLoading) {
+  if (ytTranslatorState.diagnostics.isLoading) {
     const status = document.createElement("p");
     status.className = "yt-translator-sidebar__status";
     status.textContent = "Reading chrome.storage.local...";
@@ -253,10 +253,10 @@ function renderDiagnosticsPanel() {
     return;
   }
 
-  if (diagnosticsError) {
+  if (ytTranslatorState.diagnostics.error) {
     const error = document.createElement("p");
     error.className = "yt-translator-diagnostics__error";
-    error.textContent = diagnosticsError;
+    error.textContent = ytTranslatorState.diagnostics.error;
     panel.appendChild(error);
     return;
   }
@@ -267,10 +267,10 @@ function renderDiagnosticsPanel() {
   summary.textContent = `${records.length} latency record${records.length === 1 ? "" : "s"} in ${LATENCY_DIAGNOSTICS_STORAGE_KEY}`;
   panel.appendChild(summary);
 
-  if (diagnosticsCopyMessage) {
+  if (ytTranslatorState.diagnostics.copyMessage) {
     const copyStatus = document.createElement("p");
     copyStatus.className = "yt-translator-diagnostics__copy-status";
-    copyStatus.textContent = diagnosticsCopyMessage;
+    copyStatus.textContent = ytTranslatorState.diagnostics.copyMessage;
     panel.appendChild(copyStatus);
   }
 
@@ -339,7 +339,7 @@ function renderDiagnosticsPanel() {
     panel.appendChild(empty);
   }
 
-  const storageKeys = Object.keys(diagnosticsSnapshot || {}).sort();
+  const storageKeys = Object.keys(ytTranslatorState.diagnostics.snapshot || {}).sort();
   const keys = document.createElement("p");
   keys.className = "yt-translator-diagnostics__keys";
   keys.textContent = storageKeys.length
@@ -349,33 +349,33 @@ function renderDiagnosticsPanel() {
 
   const raw = document.createElement("pre");
   raw.className = "yt-translator-diagnostics__raw";
-  raw.textContent = JSON.stringify(diagnosticsSnapshot || {}, null, 2);
+  raw.textContent = JSON.stringify(ytTranslatorState.diagnostics.snapshot || {}, null, 2);
   panel.appendChild(raw);
 }
 
 // Internal helper for the temporary diagnostics view.
 // Switches between the product sidebar and the storage-backed diagnostics display.
 function setDiagnosticsViewOpen(nextIsOpen) {
-  isDiagnosticsViewOpen = nextIsOpen;
+  ytTranslatorState.diagnostics.isViewOpen = nextIsOpen;
 
   const content = document.getElementById(DIAGNOSTICS_CONTENT_ID);
   const panel = document.getElementById(DIAGNOSTICS_PANEL_ID);
   const button = document.getElementById(DIAGNOSTICS_BUTTON_ID);
 
   if (content) {
-    content.hidden = isDiagnosticsViewOpen;
+    content.hidden = ytTranslatorState.diagnostics.isViewOpen;
   }
 
   if (panel) {
-    panel.hidden = !isDiagnosticsViewOpen;
+    panel.hidden = !ytTranslatorState.diagnostics.isViewOpen;
   }
 
   if (button) {
-    button.textContent = isDiagnosticsViewOpen ? "Back" : "Diagnostics";
-    button.setAttribute("aria-pressed", String(isDiagnosticsViewOpen));
+    button.textContent = ytTranslatorState.diagnostics.isViewOpen ? "Back" : "Diagnostics";
+    button.setAttribute("aria-pressed", String(ytTranslatorState.diagnostics.isViewOpen));
   }
 
-  if (isDiagnosticsViewOpen) {
+  if (ytTranslatorState.diagnostics.isViewOpen) {
     loadDiagnosticsSnapshot();
   }
 }
@@ -420,18 +420,18 @@ function appendCaptionTrackIfMissing(tracks, track) {
 // Internal helper for refreshAvailableCaptionTracks.
 // Adds player-captured caption URLs when page metadata omits them.
 function addCapturedCaptionTrackOptions(tracks) {
-  if (!lastCapturedPlayerCaptionUrl) {
+  if (!ytTranslatorState.playerCapture.lastCapturedCaptionUrl) {
     return tracks;
   }
 
-  const capturedTrack = createCaptionTrackFromUrl(lastCapturedPlayerCaptionUrl);
+  const capturedTrack = createCaptionTrackFromUrl(ytTranslatorState.playerCapture.lastCapturedCaptionUrl);
   let nextTracks = appendCaptionTrackIfMissing(tracks, capturedTrack);
 
   if (isAutoGeneratedCaptionTrack(capturedTrack) && isTranslatedCaptionTrack(capturedTrack)) {
     const hasSourceTrack = nextTracks.some((track) => track.sourceIdentity === capturedTrack.sourceIdentity
       && !isTranslatedCaptionTrack(track));
     const sourceTrack = createSourceCaptionTrackFromUrl(
-      lastCapturedPlayerCaptionUrl,
+      ytTranslatorState.playerCapture.lastCapturedCaptionUrl,
       capturedTrack.label,
     );
 
@@ -447,19 +447,21 @@ function addCapturedCaptionTrackOptions(tracks) {
 // Refreshes the sidebar's caption track choices from the current YouTube page.
 function refreshAvailableCaptionTracks() {
   const nextTracks = addCapturedCaptionTrackOptions(getNormalizedCaptionTracksFromPage());
-  const currentSelection = nextTracks.find((track) => track.key === selectedCaptionTrackKey);
+  const currentSelection = nextTracks.find((track) => track.key === ytTranslatorState.captionTracks.selectedKey);
   const preferredSelection = nextTracks.find((track) => track.languageCode
-    && track.languageCode === preferredCaptionTrackLanguageCode
-    && track.kind === preferredCaptionTrackKind)
+    && track.languageCode === ytTranslatorState.captionTracks.preferredLanguageCode
+    && track.kind === ytTranslatorState.captionTracks.preferredKind)
     || nextTracks.find((track) => track.languageCode
-      && track.languageCode === preferredCaptionTrackLanguageCode);
+      && track.languageCode === ytTranslatorState.captionTracks.preferredLanguageCode);
 
-  availableCaptionTracks = nextTracks;
+  ytTranslatorState.captionTracks.available = nextTracks;
 
   if (currentSelection) {
-    selectedCaptionTrackKey = currentSelection.key;
+    ytTranslatorState.captionTracks.selectedKey = currentSelection.key;
   } else {
-    selectedCaptionTrackKey = (preferredSelection || availableCaptionTracks[0])?.key || "";
+    ytTranslatorState.captionTracks.selectedKey = (
+      preferredSelection || ytTranslatorState.captionTracks.available[0]
+    )?.key || "";
   }
 }
 
@@ -474,23 +476,23 @@ function renderCaptionTrackSelector() {
   }
 
   select.textContent = "";
-  group.hidden = !availableCaptionTracks.length;
+  group.hidden = !ytTranslatorState.captionTracks.available.length;
 
-  for (const track of availableCaptionTracks) {
+  for (const track of ytTranslatorState.captionTracks.available) {
     const option = document.createElement("option");
     option.value = track.key;
     option.textContent = track.label;
     select.appendChild(option);
   }
 
-  select.value = selectedCaptionTrackKey;
-  select.disabled = availableCaptionTracks.length <= 1;
+  select.value = ytTranslatorState.captionTracks.selectedKey;
+  select.disabled = ytTranslatorState.captionTracks.available.length <= 1;
 }
 
 // Internal helper for setInitialTranscriptPrompt and setupSidebarActions.
 // Preserves the original player-capture path until the user chooses a track here.
 function loadTranscriptForCurrentCaptionChoice(isAutomatic = false) {
-  if (hasUserSelectedCaptionTrackForVideo) {
+  if (ytTranslatorState.captionTracks.hasUserSelectedForVideo) {
     loadTranscriptFromSelectedCaptionTrack(isAutomatic, { primeWithPlayerCapture: true });
     return;
   }
@@ -505,28 +507,28 @@ function setInitialTranscriptPrompt() {
   refreshAvailableCaptionTracks();
   renderCaptionTrackSelector();
   const selectedTrack = getSelectedCaptionTrack();
-  const isCurrentTranscriptLoaded = loadedTranscriptVideoId === videoId
-    && (!hasUserSelectedCaptionTrackForVideo
+  const isCurrentTranscriptLoaded = ytTranslatorState.transcript.loadedVideoId === videoId
+    && (!ytTranslatorState.captionTracks.hasUserSelectedForVideo
       || !selectedTrack
-      || loadedTranscriptTrackKey === selectedTrack.key);
+      || ytTranslatorState.transcript.loadedTrackKey === selectedTrack.key);
 
   if (!videoId
-    || activePlayerCaptionCaptureVideoId === videoId
+    || ytTranslatorState.playerCapture.activeVideoId === videoId
     || isCurrentTranscriptLoaded) {
     return;
   }
 
-  currentTranscriptSegments = [];
-  currentCaptionIndex = -1;
+  ytTranslatorState.transcript.segments = [];
+  ytTranslatorState.transcript.currentCaptionIndex = -1;
   renderCaptionRiver(-1);
 
-  if (userAllowedCaptionCapture) {
+  if (ytTranslatorState.playerCapture.userAllowedCaptionCapture) {
     setPlayerCaptureButtonVisible(false);
     loadTranscriptForCurrentCaptionChoice(true);
     return;
   }
 
-  setTranscriptStatus(availableCaptionTracks.length
+  setTranscriptStatus(ytTranslatorState.captionTracks.available.length
     ? "Choose a caption track, then load the transcript."
     : "Click below to load transcript. Captions will be enabled briefly.");
   setPlayerCaptureButtonVisible(true);
@@ -540,9 +542,9 @@ function setupSidebarActions() {
   if (toggleButton && toggleButton.dataset.initialized !== "true") {
     toggleButton.dataset.initialized = "true";
     toggleButton.addEventListener("click", () => {
-      setSidebarOpen(!isSidebarOpen);
+      setSidebarOpen(!ytTranslatorState.sidebar.isOpen);
 
-      if (isSidebarOpen) {
+      if (ytTranslatorState.sidebar.isOpen) {
         createSidebar();
       }
     });
@@ -553,7 +555,7 @@ function setupSidebarActions() {
   if (diagnosticsButton && diagnosticsButton.dataset.initialized !== "true") {
     diagnosticsButton.dataset.initialized = "true";
     diagnosticsButton.addEventListener("click", () => {
-      setDiagnosticsViewOpen(!isDiagnosticsViewOpen);
+      setDiagnosticsViewOpen(!ytTranslatorState.diagnostics.isViewOpen);
     });
   }
 
@@ -569,21 +571,24 @@ function setupSidebarActions() {
   if (captionTrackSelect && captionTrackSelect.dataset.initialized !== "true") {
     captionTrackSelect.dataset.initialized = "true";
     captionTrackSelect.addEventListener("change", () => {
-      hasUserSelectedCaptionTrackForVideo = true;
-      selectedCaptionTrackKey = captionTrackSelect.value;
+      ytTranslatorState.captionTracks.hasUserSelectedForVideo = true;
+      ytTranslatorState.captionTracks.selectedKey = captionTrackSelect.value;
       const track = getSelectedCaptionTrack();
 
       if (track) {
-        preferredCaptionTrackLanguageCode = track.languageCode;
-        preferredCaptionTrackKind = track.kind;
+        ytTranslatorState.captionTracks.preferredLanguageCode = track.languageCode;
+        ytTranslatorState.captionTracks.preferredKind = track.kind;
       }
 
-      selectedCaptionText = "";
+      ytTranslatorState.selection.captionText = "";
       resetTranslateState();
       window.getSelection()?.removeAllRanges();
       renderSelectedCaptionPill();
 
-      if (userAllowedCaptionCapture || loadedTranscriptVideoId === getVideoId()) {
+      if (
+        ytTranslatorState.playerCapture.userAllowedCaptionCapture
+          || ytTranslatorState.transcript.loadedVideoId === getVideoId()
+      ) {
         loadTranscriptFromSelectedCaptionTrack(false);
         return;
       }
@@ -624,13 +629,13 @@ function setupSidebarActions() {
 // Removes the sidebar and stops caption river updates.
 function removeSidebar() {
   document.getElementById(SIDEBAR_ID)?.remove();
-  window.clearInterval(captionRiverTimer);
+  window.clearInterval(ytTranslatorState.captionRiver.timer);
 }
 
 // Called externally by content.js.
 // Creates, refreshes, or removes the sidebar based on the current YouTube page.
 function createSidebar() {
-  if (!hasLoadedSidebarOpenState) {
+  if (!ytTranslatorState.sidebar.hasLoadedOpenState) {
     initializeSidebarOpenState(createSidebar);
     return;
   }
@@ -644,7 +649,7 @@ function createSidebar() {
     updateSidebarTitle();
     setupSidebarActions();
     renderSidebarOpenState();
-    setDiagnosticsViewOpen(isDiagnosticsViewOpen);
+    setDiagnosticsViewOpen(ytTranslatorState.diagnostics.isViewOpen);
     renderChatRiver();
     renderSelectedCaptionPill();
     setInitialTranscriptPrompt();
@@ -654,15 +659,15 @@ function createSidebar() {
   const recommendationsColumn = getRecommendationsColumn();
 
   if (!recommendationsColumn) {
-    if (retryCount < 10) {
-      retryCount += 1;
+    if (ytTranslatorState.transcript.retryCount < 10) {
+      ytTranslatorState.transcript.retryCount += 1;
       scheduleSidebarUpdate();
     }
 
     return;
   }
 
-  retryCount = 0;
+  ytTranslatorState.transcript.retryCount = 0;
 
   const sidebar = document.createElement("aside");
   sidebar.id = SIDEBAR_ID;
@@ -725,7 +730,7 @@ function createSidebar() {
   recommendationsColumn.prepend(sidebar);
   setupSidebarActions();
   renderSidebarOpenState();
-  setDiagnosticsViewOpen(isDiagnosticsViewOpen);
+  setDiagnosticsViewOpen(ytTranslatorState.diagnostics.isViewOpen);
   renderChatRiver();
   renderSelectedCaptionPill();
   updateSidebarTitle();
@@ -735,6 +740,6 @@ function createSidebar() {
 // Called externally by lifecycle.js and internally by createSidebar.
 // Schedules a delayed sidebar creation attempt.
 function scheduleSidebarUpdate() {
-  window.clearTimeout(updateTimer);
-  updateTimer = window.setTimeout(createSidebar, 500);
+  window.clearTimeout(ytTranslatorState.sidebar.updateTimer);
+  ytTranslatorState.sidebar.updateTimer = window.setTimeout(createSidebar, 500);
 }

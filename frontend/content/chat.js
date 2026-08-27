@@ -1,10 +1,10 @@
 // Internal helper for submitChatPrompt.
 // Creates a chat message record with a unique ID and timestamp.
 function createChatMessage(role, content, status = "done") {
-  chatMessageCounter += 1;
+  ytTranslatorState.chat.messageCounter += 1;
 
   return {
-    id: `${Date.now()}-${chatMessageCounter}`,
+    id: `${Date.now()}-${ytTranslatorState.chat.messageCounter}`,
     role,
     content,
     status,
@@ -128,15 +128,16 @@ function appendInlineMarkdown(parent, text) {
 // Internal helper for buildChatPayload.
 // Collects nearby transcript text to send as video context with the chat prompt.
 function getTranscriptContextPreview() {
-  if (!currentTranscriptSegments.length) {
+  if (!ytTranslatorState.transcript.segments.length) {
     return "";
   }
 
-  const activeIndex = currentCaptionIndex >= 0 ? currentCaptionIndex : 0;
+  const currentIndex = ytTranslatorState.transcript.currentCaptionIndex;
+  const activeIndex = currentIndex >= 0 ? currentIndex : 0;
   const startIndex = Math.max(0, activeIndex - 4);
-  const endIndex = Math.min(currentTranscriptSegments.length, activeIndex + 2);
+  const endIndex = Math.min(ytTranslatorState.transcript.segments.length, activeIndex + 2);
 
-  return currentTranscriptSegments
+  return ytTranslatorState.transcript.segments
     .slice(startIndex, endIndex)
     .map((segment) => segment.text)
     .join(" ");
@@ -176,7 +177,7 @@ function createSelectedCaptionClearButton() {
   clearButton.setAttribute("aria-label", "Clear selected caption text");
 
   clearButton.addEventListener("click", () => {
-    selectedCaptionText = "";
+    ytTranslatorState.selection.captionText = "";
     resetTranslateState();
     window.getSelection()?.removeAllRanges();
     renderSelectedCaptionPill();
@@ -238,13 +239,17 @@ function renderSelectedCaptionPill() {
 
   contextNode.textContent = "";
   contextNode.hidden = false;
-  contextNode.classList.toggle("yt-translator-selected-caption--empty", !selectedCaptionText);
+  contextNode.classList.toggle("yt-translator-selected-caption--empty", !ytTranslatorState.selection.captionText);
   contextNode.classList.toggle(
     "yt-translator-selected-caption--translated",
-    Boolean(isTranslateWaiting || translateResult || translateError)
+    Boolean(
+      ytTranslatorState.translate.isWaiting
+        || ytTranslatorState.translate.result
+        || ytTranslatorState.translate.error
+    )
   );
 
-  if (!selectedCaptionText) {
+  if (!ytTranslatorState.selection.captionText) {
     const label = document.createElement("span");
     label.className = "yt-translator-selected-caption__label";
     label.textContent = "Tip";
@@ -271,8 +276,8 @@ function renderSelectedCaptionPill() {
   translateButton.id = TRANSLATE_BUTTON_ID;
   translateButton.className = "yt-translator-selected-caption__translate";
   translateButton.type = "button";
-  translateButton.textContent = isTranslateWaiting ? "Translating..." : "Translate";
-  translateButton.disabled = isTranslateWaiting;
+  translateButton.textContent = ytTranslatorState.translate.isWaiting ? "Translating..." : "Translate";
+  translateButton.disabled = ytTranslatorState.translate.isWaiting;
   translateButton.setAttribute("aria-label", "Translate selected caption text");
   translateButton.addEventListener("click", submitTranslatePrompt);
 
@@ -285,7 +290,7 @@ function renderSelectedCaptionPill() {
   const sourceText = document.createElement("div");
   sourceText.className = "yt-translator-selected-caption__source-text";
 
-  const chunks = translateChunks.filter((chunk) => chunk?.source);
+  const chunks = ytTranslatorState.translate.chunks.filter((chunk) => chunk?.source);
 
   if (chunks.length) {
     sourceText.classList.add("yt-translator-selected-caption__source-text--chunked");
@@ -294,16 +299,23 @@ function renderSelectedCaptionPill() {
       sourceText.appendChild(createSelectedCaptionChunkNode(chunk));
     }
   } else {
-    sourceText.textContent = selectedCaptionText;
+    sourceText.textContent = ytTranslatorState.selection.captionText;
   }
 
   sourceBlock.appendChild(sourceText);
   contextNode.append(header, sourceBlock);
 
-  if (isTranslateWaiting || translateResult || translateError) {
+  if (
+    ytTranslatorState.translate.isWaiting
+      || ytTranslatorState.translate.result
+      || ytTranslatorState.translate.error
+  ) {
     const translationBlock = document.createElement("div");
     translationBlock.className = "yt-translator-selected-caption__translation";
-    translationBlock.classList.toggle("yt-translator-selected-caption__translation--error", Boolean(translateError));
+    translationBlock.classList.toggle(
+      "yt-translator-selected-caption__translation--error",
+      Boolean(ytTranslatorState.translate.error),
+    );
 
     const translationLabel = document.createElement("div");
     translationLabel.className = "yt-translator-selected-caption__label";
@@ -311,13 +323,13 @@ function renderSelectedCaptionPill() {
 
     const translationText = document.createElement("p");
     translationText.className = "yt-translator-selected-caption__translation-text";
-    translationText.textContent = isTranslateWaiting
+    translationText.textContent = ytTranslatorState.translate.isWaiting
       ? "Translating..."
-      : translateError || translateResult;
+      : ytTranslatorState.translate.error || ytTranslatorState.translate.result;
 
     translationBlock.append(translationLabel, translationText);
 
-    if (translateErrorDetails) {
+    if (ytTranslatorState.translate.errorDetails) {
       const details = document.createElement("details");
       details.className = "yt-translator-selected-caption__details";
 
@@ -325,7 +337,7 @@ function renderSelectedCaptionPill() {
       summary.textContent = "Error details";
 
       const detailsText = document.createElement("pre");
-      detailsText.textContent = JSON.stringify(translateErrorDetails, null, 2);
+      detailsText.textContent = JSON.stringify(ytTranslatorState.translate.errorDetails, null, 2);
 
       details.append(summary, detailsText);
       translationBlock.appendChild(details);
@@ -346,16 +358,16 @@ function renderChatRiver() {
   }
 
   river.textContent = "";
-  river.hidden = !chatMessages.length;
+  river.hidden = !ytTranslatorState.chat.messages.length;
 
-  if (!chatMessages.length) {
-    setChatControlsWaiting(isChatWaitingForReply);
+  if (!ytTranslatorState.chat.messages.length) {
+    setChatControlsWaiting(ytTranslatorState.chat.isWaitingForReply);
     return;
   }
 
   const fragment = document.createDocumentFragment();
 
-  for (const message of chatMessages) {
+  for (const message of ytTranslatorState.chat.messages) {
     const messageNode = document.createElement("article");
     messageNode.className = `yt-translator-chat-message yt-translator-chat-message--${message.role}`;
 
@@ -394,7 +406,7 @@ function renderChatRiver() {
   }
 
   river.appendChild(fragment);
-  setChatControlsWaiting(isChatWaitingForReply);
+  setChatControlsWaiting(ytTranslatorState.chat.isWaitingForReply);
   scrollChatRiverToBottom();
 }
 
@@ -403,7 +415,7 @@ function renderChatRiver() {
 function buildChatPayload(prompt) {
   return {
     message: prompt,
-    history: chatMessages
+    history: ytTranslatorState.chat.messages
       .filter((message) => message.status === "done")
       .slice(-8)
       .map((message) => ({
@@ -414,7 +426,7 @@ function buildChatPayload(prompt) {
       videoId: getVideoId(),
       title: getVideoTitle(),
       transcriptContext: getTranscriptContextPreview(),
-      selectedCaptionText: selectedCaptionText || null,
+      selectedCaptionText: ytTranslatorState.selection.captionText || null,
     },
   };
 }
@@ -448,7 +460,7 @@ function sendChatPromptToBackground(payload) {
 async function submitChatPrompt() {
   const input = document.getElementById(CHAT_INPUT_ID);
 
-  if (!input || isChatWaitingForReply) {
+  if (!input || ytTranslatorState.chat.isWaitingForReply) {
     return;
   }
 
@@ -460,25 +472,25 @@ async function submitChatPrompt() {
   }
 
   input.value = "";
-  isChatWaitingForReply = true;
-  chatMessages.push(createChatMessage("user", prompt));
+  ytTranslatorState.chat.isWaitingForReply = true;
+  ytTranslatorState.chat.messages.push(createChatMessage("user", prompt));
   const pendingReply = createChatMessage("assistant", "", "sending");
-  chatMessages.push(pendingReply);
-  const requestId = activeChatRequest + 1;
-  activeChatRequest = requestId;
+  ytTranslatorState.chat.messages.push(pendingReply);
+  const requestId = ytTranslatorState.chat.activeRequest + 1;
+  ytTranslatorState.chat.activeRequest = requestId;
   renderChatRiver();
 
   try {
     const response = await sendChatPromptToBackground(buildChatPayload(prompt));
 
-    if (requestId !== activeChatRequest) {
+    if (requestId !== ytTranslatorState.chat.activeRequest) {
       return;
     }
 
     pendingReply.content = response.message || "The assistant returned an empty response.";
     pendingReply.status = "done";
   } catch (error) {
-    if (requestId !== activeChatRequest) {
+    if (requestId !== ytTranslatorState.chat.activeRequest) {
       return;
     }
 
@@ -489,8 +501,8 @@ async function submitChatPrompt() {
     };
     pendingReply.status = "error";
   } finally {
-    if (requestId === activeChatRequest) {
-      isChatWaitingForReply = false;
+    if (requestId === ytTranslatorState.chat.activeRequest) {
+      ytTranslatorState.chat.isWaitingForReply = false;
       renderChatRiver();
       document.getElementById(CHAT_INPUT_ID)?.focus();
     }

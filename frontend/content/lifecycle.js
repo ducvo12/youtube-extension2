@@ -9,28 +9,28 @@
 
 function handleNavigation() {
   // Resets states
-  activeTranscriptRequest += 1;
-  loadedTranscriptVideoId = null;
-  loadedTranscriptTrackKey = "";
-  availableCaptionTracks = [];
-  selectedCaptionTrackKey = "";
-  hasUserSelectedCaptionTrackForVideo = false;
-  lastCapturedPlayerCaptionUrl = "";
-  activePlayerCaptionCaptureVideoId = null;
-  pendingPlayerCaptionCaptureVideoId = null;
-  currentTranscriptSegments = [];
-  currentCaptionIndex = -1;
-  chatMessages = [];
-  selectedCaptionText = "";
+  ytTranslatorState.transcript.activeRequest += 1;
+  ytTranslatorState.transcript.loadedVideoId = null;
+  ytTranslatorState.transcript.loadedTrackKey = "";
+  ytTranslatorState.captionTracks.available = [];
+  ytTranslatorState.captionTracks.selectedKey = "";
+  ytTranslatorState.captionTracks.hasUserSelectedForVideo = false;
+  ytTranslatorState.playerCapture.lastCapturedCaptionUrl = "";
+  ytTranslatorState.playerCapture.activeVideoId = null;
+  ytTranslatorState.playerCapture.pendingVideoId = null;
+  ytTranslatorState.transcript.segments = [];
+  ytTranslatorState.transcript.currentCaptionIndex = -1;
+  ytTranslatorState.chat.messages = [];
+  ytTranslatorState.selection.captionText = "";
   resetTranslateState();
-  isChatWaitingForReply = false;
-  activeChatRequest += 1;
-  isCaptionRiverPausedForAd = false;
+  ytTranslatorState.chat.isWaitingForReply = false;
+  ytTranslatorState.chat.activeRequest += 1;
+  ytTranslatorState.captionRiver.isPausedForAd = false;
 
   // Stop the old video's caption sync timer before refreshing for the new page.
-  window.clearTimeout(pendingPlayerCaptionCaptureTimer);
-  pendingPlayerCaptionCaptureTimer = null;
-  window.clearInterval(captionRiverTimer);
+  window.clearTimeout(ytTranslatorState.playerCapture.pendingTimer);
+  ytTranslatorState.playerCapture.pendingTimer = null;
+  window.clearInterval(ytTranslatorState.captionRiver.timer);
 
   // Located in sidebar.js
   scheduleSidebarUpdate();

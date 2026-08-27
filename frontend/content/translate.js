@@ -1,12 +1,12 @@
 // Called externally by caption selection handlers and internally by submitTranslatePrompt.
 // Clears the selected-caption translation result and cancels older in-flight output.
 function resetTranslateState() {
-  activeTranslateRequest += 1;
-  isTranslateWaiting = false;
-  translateResult = "";
-  translateChunks = [];
-  translateError = "";
-  translateErrorDetails = null;
+  ytTranslatorState.translate.activeRequest += 1;
+  ytTranslatorState.translate.isWaiting = false;
+  ytTranslatorState.translate.result = "";
+  ytTranslatorState.translate.chunks = [];
+  ytTranslatorState.translate.error = "";
+  ytTranslatorState.translate.errorDetails = null;
 }
 
 // Internal helper for submitTranslatePrompt.
@@ -36,11 +36,11 @@ function sendTranslatePromptToBackground(payload) {
 // Called externally by selected caption controls.
 // Translates the currently highlighted caption text and renders the English response.
 async function submitTranslatePrompt() {
-  if (isTranslateWaiting) {
+  if (ytTranslatorState.translate.isWaiting) {
     return;
   }
 
-  const text = selectedCaptionText.trim();
+  const text = ytTranslatorState.selection.captionText.trim();
 
   if (!text) {
     resetTranslateState();
@@ -48,13 +48,13 @@ async function submitTranslatePrompt() {
     return;
   }
 
-  isTranslateWaiting = true;
-  translateResult = "";
-  translateChunks = [];
-  translateError = "";
-  translateErrorDetails = null;
-  const requestId = activeTranslateRequest + 1;
-  activeTranslateRequest = requestId;
+  ytTranslatorState.translate.isWaiting = true;
+  ytTranslatorState.translate.result = "";
+  ytTranslatorState.translate.chunks = [];
+  ytTranslatorState.translate.error = "";
+  ytTranslatorState.translate.errorDetails = null;
+  const requestId = ytTranslatorState.translate.activeRequest + 1;
+  ytTranslatorState.translate.activeRequest = requestId;
   renderSelectedCaptionPill();
 
   try {
@@ -63,25 +63,25 @@ async function submitTranslatePrompt() {
       targetLanguage: "en",
     });
 
-    if (requestId !== activeTranslateRequest) {
+    if (requestId !== ytTranslatorState.translate.activeRequest) {
       return;
     }
 
-    translateResult = response.translatedText || "The backend returned an empty translation.";
-    translateChunks = Array.isArray(response.chunks) ? response.chunks : [];
+    ytTranslatorState.translate.result = response.translatedText || "The backend returned an empty translation.";
+    ytTranslatorState.translate.chunks = Array.isArray(response.chunks) ? response.chunks : [];
   } catch (error) {
-    if (requestId !== activeTranslateRequest) {
+    if (requestId !== ytTranslatorState.translate.activeRequest) {
       return;
     }
 
-    translateError = `Unable to translate: ${error.message}`;
-    translateErrorDetails = error.details || {
+    ytTranslatorState.translate.error = `Unable to translate: ${error.message}`;
+    ytTranslatorState.translate.errorDetails = error.details || {
       source: "content-script",
       message: error.message,
     };
   } finally {
-    if (requestId === activeTranslateRequest) {
-      isTranslateWaiting = false;
+    if (requestId === ytTranslatorState.translate.activeRequest) {
+      ytTranslatorState.translate.isWaiting = false;
       renderSelectedCaptionPill();
     }
   }

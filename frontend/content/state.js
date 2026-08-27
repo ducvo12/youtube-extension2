@@ -1,41 +1,61 @@
-let updateTimer = null;
-let captionRiverTimer = null;
-let retryCount = 0;
-let activeTranscriptRequest = 0;
-let activeChatRequest = 0;
-let loadedTranscriptVideoId = null;
-let currentTranscriptSegments = [];
-let currentCaptionIndex = -1;
-let availableCaptionTracks = [];
-let selectedCaptionTrackKey = "";
-let loadedTranscriptTrackKey = "";
-let preferredCaptionTrackLanguageCode = "";
-let preferredCaptionTrackKind = "";
-let hasUserSelectedCaptionTrackForVideo = false;
-let lastCapturedPlayerCaptionUrl = "";
-let chatMessages = [];
-let chatMessageCounter = 0;
-let isChatWaitingForReply = false;
-let selectedCaptionText = "";
-let isSnappingCaptionSelection = false;
-let activeTranslateRequest = 0;
-let isTranslateWaiting = false;
-let translateResult = "";
-let translateChunks = [];
-let translateError = "";
-let translateErrorDetails = null;
-let isCaptionRiverPausedForAd = false;
-let userAllowedCaptionCapture = false;
-let isSidebarOpen = true;
-let isDiagnosticsViewOpen = false;
-let diagnosticsSnapshot = null;
-let diagnosticsError = "";
-let diagnosticsIsLoading = false;
-let diagnosticsCopyMessage = "";
-let hasLoadedSidebarOpenState = false;
-let activePlayerCaptionCaptureVideoId = null;
-let pendingPlayerCaptionCaptureVideoId = null;
-let pendingPlayerCaptionCaptureTimer = null;
-let pageCaptionCapturerInjected = false;
-let pageCaptionCapturerReady = null;
-let playerCaptionCaptureRequestId = 0;
+const ytTranslatorState = {
+  sidebar: {
+    updateTimer: null,
+    isOpen: true,
+    hasLoadedOpenState: false,
+  },
+  transcript: {
+    retryCount: 0,
+    activeRequest: 0,
+    loadedVideoId: null,
+    loadedTrackKey: "",
+    segments: [],
+    currentCaptionIndex: -1,
+  },
+  captionTracks: {
+    available: [],
+    selectedKey: "",
+    preferredLanguageCode: "",
+    preferredKind: "",
+    hasUserSelectedForVideo: false,
+  },
+  captionRiver: {
+    timer: null,
+    isPausedForAd: false,
+  },
+  selection: {
+    captionText: "",
+    isSnapping: false,
+  },
+  chat: {
+    activeRequest: 0,
+    messages: [],
+    messageCounter: 0,
+    isWaitingForReply: false,
+  },
+  translate: {
+    activeRequest: 0,
+    isWaiting: false,
+    result: "",
+    chunks: [],
+    error: "",
+    errorDetails: null,
+  },
+  diagnostics: {
+    isViewOpen: false,
+    snapshot: null,
+    error: "",
+    isLoading: false,
+    copyMessage: "",
+  },
+  playerCapture: {
+    userAllowedCaptionCapture: false,
+    activeVideoId: null,
+    pendingVideoId: null,
+    pendingTimer: null,
+    pageCapturerInjected: false,
+    pageCapturerReady: null,
+    requestId: 0,
+    lastCapturedCaptionUrl: "",
+  },
+};
