@@ -133,10 +133,11 @@ function getTranscriptContextPreview() {
   }
 
   const activeIndex = currentCaptionIndex >= 0 ? currentCaptionIndex : 0;
-  const startIndex = Math.max(0, activeIndex - 1);
+  const startIndex = Math.max(0, activeIndex - 4);
+  const endIndex = Math.min(currentTranscriptSegments.length, activeIndex + 2);
 
   return currentTranscriptSegments
-    .slice(startIndex, startIndex + 3)
+    .slice(startIndex, endIndex)
     .map((segment) => segment.text)
     .join(" ");
 }
