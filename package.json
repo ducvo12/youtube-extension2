@@ -1,0 +1,26 @@
+{
+  "name": "youtube-translator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "YouTube contextual language learning extension.",
+  "scripts": {
+    "build:frontend": "node scripts/build-frontend.mjs",
+    "watch:frontend": "node scripts/build-frontend.mjs --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ducvo12/youtube-extension2.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/ducvo12/youtube-extension2/issues"
+  },
+  "homepage": "https://github.com/ducvo12/youtube-extension2#readme"
+}

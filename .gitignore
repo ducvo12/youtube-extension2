@@ -10,7 +10,7 @@
 *.sln
 *.sw?
 
-# Node (in case it is added later)
+# Node
 node_modules/
 npm-debug.log*
 yarn-debug.log*

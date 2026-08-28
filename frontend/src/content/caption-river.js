@@ -1,3 +1,15 @@
+import { renderSelectedCaptionPill } from "./chat.js";
+import {
+  CAPTION_DISPLAY_SEGMENT_OFFSET,
+  CAPTION_END_GRACE_MS,
+  CAPTION_RIVER_ID,
+  CAPTION_START_LEAD_MS,
+} from "./constants.js";
+import { setPlayerCaptureButtonVisible, setTranscriptStatus } from "./sidebar.js";
+import { ytTranslatorState } from "./state.js";
+import { resetTranslateState } from "./translate.js";
+import { getPlaybackTimeMs, isAdShowing } from "./youtube-page.js";
+
 // Internal helper for updateCaptionRiver.
 // Finds which transcript segment matches the current playback time.
 function getActiveCaptionIndex(currentTimeMs) {
@@ -151,14 +163,14 @@ function snapCaptionSelectionToWords() {
 
 // Called externally by content.js.
 // Defers caption selection snapping until the browser selection has settled.
-function scheduleCaptionSelectionSnap() {
+export function scheduleCaptionSelectionSnap() {
   window.setTimeout(snapCaptionSelectionToWords, 0);
 }
 
 // Called externally by content.js and internally by updateCaptionRiver and renderTranscript.
 // Renders the visible caption river for the current active caption index.
 // Called when caption river state changes
-function renderCaptionRiver(activeIndex) {
+export function renderCaptionRiver(activeIndex) {
   const riverNode = document.getElementById(CAPTION_RIVER_ID);
 
   if (!riverNode) {
@@ -248,7 +260,7 @@ function startCaptionRiverUpdates() {
 // Called externally by content.js after transcript segments are loaded.
 // Stores transcript segments and starts rendering the caption river.
 // Called when new video (and new transcript) are loaded
-function renderTranscript(segments, trackLabel = "") {
+export function renderTranscript(segments, trackLabel = "") {
   ytTranslatorState.transcript.segments = segments;
   ytTranslatorState.transcript.currentCaptionIndex = -1;
 

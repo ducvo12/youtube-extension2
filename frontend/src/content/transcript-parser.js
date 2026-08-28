@@ -117,7 +117,7 @@ function parseTranscriptBody(body, format) {
 
 // MAIN FUNCTION (called by other modules to parse transcript)
 // Tries likely transcript parsers until one returns usable caption segments.
-function parseTranscriptBodyAuto(body) {
+export function parseTranscriptBodyAuto(body) {
   const trimmedBody = body.trim();
   const parsers = [];
 

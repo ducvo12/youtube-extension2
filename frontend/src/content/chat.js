@@ -1,3 +1,14 @@
+import {
+  CHAT_INPUT_ID,
+  CHAT_RIVER_ID,
+  CHAT_SEND_BUTTON_ID,
+  SELECTED_CAPTION_ID,
+  TRANSLATE_BUTTON_ID,
+} from "./constants.js";
+import { ytTranslatorState } from "./state.js";
+import { resetTranslateState, submitTranslatePrompt } from "./translate.js";
+import { getVideoId, getVideoTitle } from "./youtube-page.js";
+
 // Internal helper for submitChatPrompt.
 // Creates a chat message record with a unique ID and timestamp.
 function createChatMessage(role, content, status = "done") {
@@ -230,7 +241,7 @@ function createSelectedCaptionChunkNode(chunk) {
 // Called externally by content.js.
 // Renders the selected caption pill shown above the chat input.
 // Gets called when user highlights captions in caption river (highlight state changes)
-function renderSelectedCaptionPill() {
+export function renderSelectedCaptionPill() {
   const contextNode = document.getElementById(SELECTED_CAPTION_ID);
 
   if (!contextNode) {
@@ -350,7 +361,7 @@ function renderSelectedCaptionPill() {
 // Called externally by content.js and internally by submitChatPrompt.
 // Renders all chat messages and updates the chat controls.
 // Is called when chat state changes.
-function renderChatRiver() {
+export function renderChatRiver() {
   const river = document.getElementById(CHAT_RIVER_ID);
 
   if (!river) {
@@ -457,7 +468,7 @@ function sendChatPromptToBackground(payload) {
 
 // Called externally by content.js.
 // Submits the current chat prompt, renders pending state, and applies the assistant response.
-async function submitChatPrompt() {
+export async function submitChatPrompt() {
   const input = document.getElementById(CHAT_INPUT_ID);
 
   if (!input || ytTranslatorState.chat.isWaitingForReply) {

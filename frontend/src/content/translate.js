@@ -1,6 +1,9 @@
+import { renderSelectedCaptionPill } from "./chat.js";
+import { ytTranslatorState } from "./state.js";
+
 // Called externally by caption selection handlers and internally by submitTranslatePrompt.
 // Clears the selected-caption translation result and cancels older in-flight output.
-function resetTranslateState() {
+export function resetTranslateState() {
   ytTranslatorState.translate.activeRequest += 1;
   ytTranslatorState.translate.isWaiting = false;
   ytTranslatorState.translate.result = "";
@@ -35,7 +38,7 @@ function sendTranslatePromptToBackground(payload) {
 
 // Called externally by selected caption controls.
 // Translates the currently highlighted caption text and renders the English response.
-async function submitTranslatePrompt() {
+export async function submitTranslatePrompt() {
   if (ytTranslatorState.translate.isWaiting) {
     return;
   }

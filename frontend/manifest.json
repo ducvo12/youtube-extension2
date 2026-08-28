@@ -15,11 +15,11 @@
     "https://*.googlevideo.com/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "dist/background.js"
   },
   "web_accessible_resources": [
     {
-      "resources": ["page-caption-capturer.js"],
+      "resources": ["dist/page-caption-capturer.js"],
       "matches": ["https://www.youtube.com/*"]
     }
   ],
@@ -28,17 +28,7 @@
       "matches": ["https://www.youtube.com/*"],
       "css": ["styles.css"],
       "js": [
-        "content/constants.js",
-        "content/state.js",
-        "content/transcript-parser.js",
-        "content/youtube-page.js",
-        "content/chat.js",
-        "content/translate.js",
-        "content/caption-river.js",
-        "content/player-caption-capture.js",
-        "content/sidebar.js",
-        "content/lifecycle.js",
-        "content.js"
+        "dist/content.js"
       ],
       "run_at": "document_idle"
     }

@@ -1,3 +1,7 @@
+import { ytTranslatorState } from "./state.js";
+import { scheduleSidebarUpdate } from "./sidebar.js";
+import { resetTranslateState } from "./translate.js";
+
 /*
  * YouTube navigation lifecycle.
  *
@@ -7,7 +11,7 @@
  * state before asking the sidebar to refresh for the new page/video.
  */
 
-function handleNavigation() {
+export function handleNavigation() {
   // Resets states
   ytTranslatorState.transcript.activeRequest += 1;
   ytTranslatorState.transcript.loadedVideoId = null;

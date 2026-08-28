@@ -1,4 +1,4 @@
-const ytTranslatorState = {
+export const ytTranslatorState = {
   sidebar: {
     updateTimer: null,
     isOpen: true,
