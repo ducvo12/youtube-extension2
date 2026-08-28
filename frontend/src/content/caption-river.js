@@ -161,15 +161,14 @@ function snapCaptionSelectionToWords() {
   renderSelectedCaptionPill();
 }
 
-// Called externally by content.js.
+// Exported for sidebar selection event wiring.
 // Defers caption selection snapping until the browser selection has settled.
 export function scheduleCaptionSelectionSnap() {
   window.setTimeout(snapCaptionSelectionToWords, 0);
 }
 
-// Called externally by content.js and internally by updateCaptionRiver and renderTranscript.
+// Exported for sidebar prompt resets and reused by caption river updates.
 // Renders the visible caption river for the current active caption index.
-// Called when caption river state changes
 export function renderCaptionRiver(activeIndex) {
   const riverNode = document.getElementById(CAPTION_RIVER_ID);
 
@@ -257,9 +256,8 @@ function startCaptionRiverUpdates() {
   ytTranslatorState.captionRiver.timer = window.setInterval(updateCaptionRiver, 250);
 }
 
-// Called externally by content.js after transcript segments are loaded.
+// Exported for transcript loaders after caption segments are parsed.
 // Stores transcript segments and starts rendering the caption river.
-// Called when new video (and new transcript) are loaded
 export function renderTranscript(segments, trackLabel = "") {
   ytTranslatorState.transcript.segments = segments;
   ytTranslatorState.transcript.currentCaptionIndex = -1;

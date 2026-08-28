@@ -177,7 +177,7 @@ function getYouTubeText(textLike) {
   return "";
 }
 
-// Internal helper for getNormalizedCaptionTracksFromPage.
+// Exported for caption track normalization and transcript fetching.
 // Normalizes a caption URL while preserving the selected translation target.
 export function getCaptionTrackUrlString(urlString) {
   if (!urlString) {
@@ -194,7 +194,7 @@ export function getCaptionTrackUrlString(urlString) {
   }
 }
 
-// Internal helper for getNormalizedCaptionTracksFromPage.
+// Exported for caption track normalization and transcript fetching.
 // Removes YouTube's target-language translation from a caption URL.
 export function getCaptionSourceUrlString(urlString) {
   const urlStringWithoutFormat = getCaptionTrackUrlString(urlString);

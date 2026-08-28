@@ -115,7 +115,7 @@ function parseTranscriptBody(body, format) {
   return parseVttTranscript(body);
 }
 
-// MAIN FUNCTION (called by other modules to parse transcript)
+// Exported for transcript loaders.
 // Tries likely transcript parsers until one returns usable caption segments.
 export function parseTranscriptBodyAuto(body) {
   const trimmedBody = body.trim();

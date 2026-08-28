@@ -6,9 +6,9 @@ import { resetTranslateState } from "./translate.js";
  * YouTube navigation lifecycle.
  *
  * YouTube behaves like a single-page app, so moving between videos does not
- * always reload this content script. content.js wires YouTube navigation
- * events to handleNavigation(), and this file resets video-specific extension
- * state before asking the sidebar to refresh for the new page/video.
+ * always reload this content script. The content entry point wires YouTube
+ * navigation events to handleNavigation(), and this file resets video-specific
+ * extension state before asking the sidebar to refresh for the new page/video.
  */
 
 export function handleNavigation() {
@@ -36,6 +36,5 @@ export function handleNavigation() {
   ytTranslatorState.playerCapture.pendingTimer = null;
   window.clearInterval(ytTranslatorState.captionRiver.timer);
 
-  // Located in sidebar.js
   scheduleSidebarUpdate();
 }

@@ -1,8 +1,10 @@
 import { renderTranscript } from "./caption-river.js";
-import { CAPTION_TRACK_SELECT_ID, PLAYER_CAPTURE_BUTTON_ID } from "./constants.js";
 import {
   refreshAvailableCaptionTracks,
   renderCaptionTrackSelector,
+} from "./caption-track-selector.js";
+import { CAPTION_TRACK_SELECT_ID, PLAYER_CAPTURE_BUTTON_ID } from "./constants.js";
+import {
   setPlayerCaptureButtonVisible,
   setTranscriptStatus,
 } from "./sidebar.js";
@@ -28,14 +30,13 @@ import {
  * control and captures the caption network response made by the player. That
  * captured response already contains the request details YouTube requires.
  *
- * Public entry point:
+ * Public entry points:
  *
+ *   loadTranscriptFromSelectedCaptionTrack()
  *   loadTranscriptFromPlayerCaptions()
  *
- * That function is called by sidebar.js when the user clicks the transcript
- * load button, or automatically after the user has already allowed caption
- * capture on a previous video. content.js does not call it directly; content.js
- * bootstraps the extension, while sidebar.js wires the UI to this module.
+ * The sidebar imports these functions for the transcript load button and for
+ * automatic caption loading after the user has allowed caption capture once.
  *
  * Function interaction:
  *
@@ -53,8 +54,7 @@ import {
  *     -> restorePlayerCaptionState() in finally so captions return to their
  *        original enabled/disabled state
  *
- * The end result is that sidebar.js can call one high-level function and receive
- * the full behavior: capture YouTube's player transcript request, parse the
+ * The exported loaders capture YouTube's player transcript request, parse the
  * response, render captions, surface errors, and restore the player UI.
  */
 
@@ -267,7 +267,7 @@ async function restorePlayerCaptionState(wasEnabled) {
   }
 }
 
-// Internal helper for loadTranscriptFromSelectedCaptionTrack.
+// Exported for sidebar caption-track selection state.
 // Finds the currently selected normalized caption track.
 export function getSelectedCaptionTrack() {
   return ytTranslatorState.captionTracks.available.find(
@@ -476,7 +476,7 @@ async function primeCaptionTrackRequestParams(videoId, captionRequestId, trackLa
   }
 }
 
-// Called externally by sidebar.js.
+// Exported for the sidebar caption-track load path.
 // Loads the transcript for the caption track selected in the sidebar.
 export async function loadTranscriptFromSelectedCaptionTrack(isAutomatic = false, options = {}) {
   const videoId = getVideoId();
@@ -562,7 +562,7 @@ export async function loadTranscriptFromSelectedCaptionTrack(isAutomatic = false
   }
 }
 
-// Called externally by sidebar.js.
+// Exported for the sidebar player-capture load path.
 // Captures YouTube player's caption response, parses it, and renders transcript segments.
 export async function loadTranscriptFromPlayerCaptions(isAutomatic = false, attempt = 0, requestId = null) {
   const videoId = getVideoId();

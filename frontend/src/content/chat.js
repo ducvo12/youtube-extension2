@@ -238,9 +238,8 @@ function createSelectedCaptionChunkNode(chunk) {
   return chunkNode;
 }
 
-// Called externally by content.js.
+// Exported for caption selection, translation, and sidebar rendering.
 // Renders the selected caption pill shown above the chat input.
-// Gets called when user highlights captions in caption river (highlight state changes)
 export function renderSelectedCaptionPill() {
   const contextNode = document.getElementById(SELECTED_CAPTION_ID);
 
@@ -358,9 +357,8 @@ export function renderSelectedCaptionPill() {
   }
 }
 
-// Called externally by content.js and internally by submitChatPrompt.
+// Exported for sidebar rendering and reused after chat state changes.
 // Renders all chat messages and updates the chat controls.
-// Is called when chat state changes.
 export function renderChatRiver() {
   const river = document.getElementById(CHAT_RIVER_ID);
 
@@ -466,7 +464,7 @@ function sendChatPromptToBackground(payload) {
   });
 }
 
-// Called externally by content.js.
+// Exported for sidebar form event handlers.
 // Submits the current chat prompt, renders pending state, and applies the assistant response.
 export async function submitChatPrompt() {
   const input = document.getElementById(CHAT_INPUT_ID);

@@ -12,6 +12,8 @@ const sourceFiles = [
   "frontend/src/content.js",
   "frontend/src/content/constants.js",
   "frontend/src/content/state.js",
+  "frontend/src/content/diagnostics.js",
+  "frontend/src/content/caption-track-selector.js",
   "frontend/src/content/transcript-parser.js",
   "frontend/src/content/youtube-page.js",
   "frontend/src/content/chat.js",

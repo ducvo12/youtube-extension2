@@ -1,7 +1,7 @@
 import { renderSelectedCaptionPill } from "./chat.js";
 import { ytTranslatorState } from "./state.js";
 
-// Called externally by caption selection handlers and internally by submitTranslatePrompt.
+// Exported for caption selection handlers and translation request flow.
 // Clears the selected-caption translation result and cancels older in-flight output.
 export function resetTranslateState() {
   ytTranslatorState.translate.activeRequest += 1;
@@ -36,7 +36,7 @@ function sendTranslatePromptToBackground(payload) {
   });
 }
 
-// Called externally by selected caption controls.
+// Exported for the selected-caption translate button.
 // Translates the currently highlighted caption text and renders the English response.
 export async function submitTranslatePrompt() {
   if (ytTranslatorState.translate.isWaiting) {
