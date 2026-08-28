@@ -1,0 +1,132 @@
+(() => {
+  // frontend/src/page-caption-capturer.js
+  (() => {
+    if (window.__ytTranslatorCaptionCapturerInstalled) {
+      return;
+    }
+    window.__ytTranslatorCaptionCapturerInstalled = true;
+    const captures = /* @__PURE__ */ new Map();
+    function isCaptionUrl(url) {
+      if (typeof url !== "string" || !url.includes("timedtext")) {
+        return false;
+      }
+      try {
+        const parsedUrl = new URL(url, window.location.href);
+        return parsedUrl.searchParams.has("lang") && parsedUrl.searchParams.get("type") !== "list";
+      } catch (_error) {
+        return false;
+      }
+    }
+    function getCaptionVideoId(url) {
+      try {
+        return new URL(url, window.location.href).searchParams.get("v");
+      } catch (_error) {
+        return null;
+      }
+    }
+    function shouldUseCaptionUrlForCapture(url, capture) {
+      if (!capture.expectedVideoId) {
+        return true;
+      }
+      return getCaptionVideoId(url) === capture.expectedVideoId;
+    }
+    function finishCapture(body, url) {
+      if (!body.trim()) {
+        return;
+      }
+      for (const [requestId, capture] of captures) {
+        if (!shouldUseCaptionUrlForCapture(url, capture)) {
+          continue;
+        }
+        window.clearTimeout(capture.timeout);
+        captures.delete(requestId);
+        window.postMessage({
+          source: "yt-translator-caption-capturer",
+          type: "PLAYER_CAPTION_CAPTURE_RESULT",
+          requestId,
+          ok: true,
+          body,
+          url
+        }, "*");
+      }
+    }
+    function failCapture(requestId, error) {
+      const capture = captures.get(requestId);
+      if (!capture) {
+        return;
+      }
+      window.clearTimeout(capture.timeout);
+      captures.delete(requestId);
+      window.postMessage({
+        source: "yt-translator-caption-capturer",
+        type: "PLAYER_CAPTION_CAPTURE_RESULT",
+        requestId,
+        ok: false,
+        error
+      }, "*");
+    }
+    function cancelCapture(requestId) {
+      const capture = captures.get(requestId);
+      if (!capture) {
+        return;
+      }
+      window.clearTimeout(capture.timeout);
+      captures.delete(requestId);
+    }
+    const originalFetch = window.fetch;
+    window.fetch = async function patchedFetch(...args) {
+      const response = await originalFetch.apply(this, args);
+      const url = response.url || String(args[0]?.url || args[0] || "");
+      if (isCaptionUrl(url) && captures.size) {
+        response.clone().text().then((body) => finishCapture(body, url)).catch(() => {
+        });
+      }
+      return response;
+    };
+    const originalOpen = XMLHttpRequest.prototype.open;
+    const originalSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function patchedOpen(method, url, ...args) {
+      this.__ytTranslatorUrl = String(url || "");
+      return originalOpen.call(this, method, url, ...args);
+    };
+    XMLHttpRequest.prototype.send = function patchedSend(...args) {
+      if (isCaptionUrl(this.__ytTranslatorUrl)) {
+        this.addEventListener("loadend", () => {
+          if (!captures.size) {
+            return;
+          }
+          try {
+            finishCapture(this.responseText || "", this.__ytTranslatorUrl);
+          } catch (_error) {
+          }
+        });
+      }
+      return originalSend.apply(this, args);
+    };
+    window.addEventListener("message", (event) => {
+      if (event.source !== window || event.data?.source !== "yt-translator-content") {
+        return;
+      }
+      if (event.data.type === "CANCEL_PLAYER_CAPTION_CAPTURE") {
+        cancelCapture(event.data.requestId);
+        return;
+      }
+      if (event.data.type !== "START_PLAYER_CAPTION_CAPTURE") {
+        return;
+      }
+      const requestId = event.data.requestId;
+      const expectedVideoId = event.data.expectedVideoId || null;
+      const timeout = window.setTimeout(() => {
+        failCapture(requestId, "Timed out waiting for YouTube caption request");
+      }, event.data.timeoutMs || 12e3);
+      captures.set(requestId, { timeout, expectedVideoId });
+      window.postMessage({
+        source: "yt-translator-caption-capturer",
+        type: "PLAYER_CAPTION_CAPTURE_STARTED",
+        requestId,
+        ok: true
+      }, "*");
+    });
+  })();
+})();
+//# sourceMappingURL=page-caption-capturer.js.map
