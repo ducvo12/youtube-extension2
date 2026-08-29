@@ -1,5 +1,5 @@
 import { handleNavigation } from "./content/lifecycle.js";
-import { createSidebar, initializeSidebarOpenState } from "./content/sidebar.js";
+import { createSidebar, initializeSidebarOpenState } from "./content/sidebar/sidebar.js";
 
 function startYouTubeTranslatorContentScript() {
   initializeSidebarOpenState(createSidebar);

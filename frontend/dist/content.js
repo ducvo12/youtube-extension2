@@ -62,18 +62,16 @@
     }
   };
 
-  // frontend/src/content/constants.js
+  // frontend/src/content/dom-ids.js
   var SIDEBAR_ID = "yt-translator-sidebar";
   var SIDEBAR_BODY_ID = "yt-translator-sidebar-body";
   var SIDEBAR_TOGGLE_BUTTON_ID = "yt-translator-sidebar-toggle";
-  var SIDEBAR_OPEN_STORAGE_KEY = "ytTranslatorSidebarOpen";
   var DIAGNOSTICS_BUTTON_ID = "yt-translator-diagnostics-button";
   var DIAGNOSTICS_CONTENT_ID = "yt-translator-diagnostics-content";
   var DIAGNOSTICS_PANEL_ID = "yt-translator-diagnostics-panel";
   var DIAGNOSTICS_TABLE_ID = "yt-translator-diagnostics-table";
   var DIAGNOSTICS_REFRESH_BUTTON_ID = "yt-translator-diagnostics-refresh";
   var DIAGNOSTICS_COPY_BUTTON_ID = "yt-translator-diagnostics-copy";
-  var LATENCY_DIAGNOSTICS_STORAGE_KEY = "ytTranslatorLatencyDiagnostics";
   var TITLE_ID = "yt-translator-video-title";
   var TRANSCRIPT_STATUS_ID = "yt-translator-transcript-status";
   var CAPTION_TRACK_SELECT_ID = "yt-translator-caption-track-select";
@@ -86,9 +84,6 @@
   var CHAT_SEND_BUTTON_ID = "yt-translator-chat-send";
   var SELECTED_CAPTION_ID = "yt-translator-selected-caption";
   var TRANSLATE_BUTTON_ID = "yt-translator-translate-button";
-  var CAPTION_START_LEAD_MS = 0;
-  var CAPTION_END_GRACE_MS = 500;
-  var CAPTION_DISPLAY_SEGMENT_OFFSET = 0;
 
   // frontend/src/content/translate.js
   function resetTranslateState() {
@@ -162,7 +157,7 @@
     }
   }
 
-  // frontend/src/content/youtube-page.js
+  // frontend/src/content/youtube/youtube-page.js
   function getVideoTitle() {
     const titleElement = document.querySelector("h1.ytd-watch-metadata yt-formatted-string") || document.querySelector("h1.ytd-watch-metadata") || document.querySelector("h1.title");
     const title = titleElement?.textContent?.trim();
@@ -459,7 +454,7 @@
     return document.querySelector("ytd-watch-flexy #secondary-inner") || document.querySelector("#secondary-inner") || document.querySelector("#secondary");
   }
 
-  // frontend/src/content/chat.js
+  // frontend/src/content/chat/chat.js
   function createChatMessage(role, content, status = "done") {
     ytTranslatorState.chat.messageCounter += 1;
     return {
@@ -832,7 +827,12 @@
     }
   }
 
-  // frontend/src/content/caption-river.js
+  // frontend/src/content/caption-timing.js
+  var CAPTION_START_LEAD_MS = 0;
+  var CAPTION_END_GRACE_MS = 500;
+  var CAPTION_DISPLAY_SEGMENT_OFFSET = 0;
+
+  // frontend/src/content/captions/caption-river.js
   function getActiveCaptionIndex(currentTimeMs) {
     if (!ytTranslatorState.transcript.segments.length) {
       return -1;
@@ -1015,7 +1015,7 @@
     setTranscriptStatus(trackLabel ? `Captions loaded: ${trackLabel}.` : "Captions loaded.");
   }
 
-  // frontend/src/content/caption-track-selector.js
+  // frontend/src/content/sidebar/caption-track-selector.js
   function appendCaptionTrackIfMissing(tracks, track) {
     if (!track) {
       return tracks;
@@ -1073,7 +1073,11 @@
     select.disabled = ytTranslatorState.captionTracks.available.length <= 1;
   }
 
-  // frontend/src/content/diagnostics.js
+  // frontend/src/shared/storage-keys.js
+  var LATENCY_DIAGNOSTICS_STORAGE_KEY = "ytTranslatorLatencyDiagnostics";
+  var SIDEBAR_OPEN_STORAGE_KEY = "ytTranslatorSidebarOpen";
+
+  // frontend/src/content/sidebar/diagnostics.js
   function formatDiagnosticsDuration(value) {
     if (typeof value !== "number" || !Number.isFinite(value)) {
       return "-";
@@ -1314,7 +1318,7 @@
     }
   }
 
-  // frontend/src/content/transcript-parser.js
+  // frontend/src/content/captions/transcript-parser.js
   function parseTranscriptEvents(events = []) {
     return events.map((event) => ({
       startMs: event.tStartMs || 0,
@@ -1395,7 +1399,7 @@
     return [];
   }
 
-  // frontend/src/content/player-caption-capture.js
+  // frontend/src/content/captions/player-caption-capture.js
   function ensurePageCaptionCapturerInjected() {
     if (ytTranslatorState.playerCapture.pageCapturerReady) {
       return ytTranslatorState.playerCapture.pageCapturerReady;
@@ -1832,7 +1836,7 @@
     }
   }
 
-  // frontend/src/content/sidebar.js
+  // frontend/src/content/sidebar/sidebar.js
   function updateSidebarTitle() {
     const titleNode = document.getElementById(TITLE_ID);
     if (!titleNode) {

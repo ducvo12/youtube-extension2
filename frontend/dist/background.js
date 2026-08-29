@@ -1,12 +1,14 @@
 (() => {
-  // frontend/src/background.js
+  // frontend/src/shared/storage-keys.js
+  var LATENCY_DIAGNOSTICS_STORAGE_KEY = "ytTranslatorLatencyDiagnostics";
+
+  // frontend/src/background/background.js
   var BACKEND_CHAT_URL = "http://127.0.0.1:8000/api/chat";
   var BACKEND_TRANSLATE_URL = "http://127.0.0.1:8000/api/translate";
   var BACKEND_TRANSLATE_LEARNING_URL = "http://127.0.0.1:8000/api/translate/learning";
   var CHAT_REQUEST_TIMEOUT_MS = 15e3;
   var TRANSLATE_REQUEST_TIMEOUT_MS = 1e4;
   var TRANSLATE_LEARNING_REQUEST_TIMEOUT_MS = 15e3;
-  var LATENCY_DIAGNOSTICS_STORAGE_KEY = "ytTranslatorLatencyDiagnostics";
   var MAX_LATENCY_DIAGNOSTICS_RECORDS = 100;
   function createLatencyRequestId() {
     if (globalThis.crypto?.randomUUID) {

@@ -1,14 +1,12 @@
 export const SIDEBAR_ID = "yt-translator-sidebar";
 export const SIDEBAR_BODY_ID = "yt-translator-sidebar-body";
 export const SIDEBAR_TOGGLE_BUTTON_ID = "yt-translator-sidebar-toggle";
-export const SIDEBAR_OPEN_STORAGE_KEY = "ytTranslatorSidebarOpen";
 export const DIAGNOSTICS_BUTTON_ID = "yt-translator-diagnostics-button";
 export const DIAGNOSTICS_CONTENT_ID = "yt-translator-diagnostics-content";
 export const DIAGNOSTICS_PANEL_ID = "yt-translator-diagnostics-panel";
 export const DIAGNOSTICS_TABLE_ID = "yt-translator-diagnostics-table";
 export const DIAGNOSTICS_REFRESH_BUTTON_ID = "yt-translator-diagnostics-refresh";
 export const DIAGNOSTICS_COPY_BUTTON_ID = "yt-translator-diagnostics-copy";
-export const LATENCY_DIAGNOSTICS_STORAGE_KEY = "ytTranslatorLatencyDiagnostics";
 export const TITLE_ID = "yt-translator-video-title";
 export const TRANSCRIPT_STATUS_ID = "yt-translator-transcript-status";
 export const CAPTION_TRACK_SELECT_ID = "yt-translator-caption-track-select";
@@ -21,7 +19,3 @@ export const CHAT_INPUT_ID = "yt-translator-chat-input";
 export const CHAT_SEND_BUTTON_ID = "yt-translator-chat-send";
 export const SELECTED_CAPTION_ID = "yt-translator-selected-caption";
 export const TRANSLATE_BUTTON_ID = "yt-translator-translate-button";
-
-export const CAPTION_START_LEAD_MS = 0;
-export const CAPTION_END_GRACE_MS = 500;
-export const CAPTION_DISPLAY_SEGMENT_OFFSET = 0;

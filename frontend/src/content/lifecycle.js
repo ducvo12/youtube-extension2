@@ -1,5 +1,5 @@
 import { ytTranslatorState } from "./state.js";
-import { scheduleSidebarUpdate } from "./sidebar.js";
+import { scheduleSidebarUpdate } from "./sidebar/sidebar.js";
 import { resetTranslateState } from "./translate.js";
 
 /*

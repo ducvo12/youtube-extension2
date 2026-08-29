@@ -1,0 +1,3 @@
+export const CAPTION_START_LEAD_MS = 0;
+export const CAPTION_END_GRACE_MS = 500;
+export const CAPTION_DISPLAY_SEGMENT_OFFSET = 0;

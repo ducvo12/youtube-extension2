@@ -1,9 +1,9 @@
-import { renderCaptionRiver, scheduleCaptionSelectionSnap } from "./caption-river.js";
+import { renderCaptionRiver, scheduleCaptionSelectionSnap } from "../captions/caption-river.js";
 import {
   refreshAvailableCaptionTracks,
   renderCaptionTrackSelector,
 } from "./caption-track-selector.js";
-import { renderChatRiver, renderSelectedCaptionPill, submitChatPrompt } from "./chat.js";
+import { renderChatRiver, renderSelectedCaptionPill, submitChatPrompt } from "../chat/chat.js";
 import {
   CAPTION_RIVER_ID,
   CAPTION_TRACK_GROUP_ID,
@@ -19,25 +19,25 @@ import {
   SELECTED_CAPTION_ID,
   SIDEBAR_BODY_ID,
   SIDEBAR_ID,
-  SIDEBAR_OPEN_STORAGE_KEY,
   SIDEBAR_TOGGLE_BUTTON_ID,
   TITLE_ID,
   TRANSCRIPT_STATUS_ID,
-} from "./constants.js";
+} from "../dom-ids.js";
+import { SIDEBAR_OPEN_STORAGE_KEY } from "../../shared/storage-keys.js";
 import { setDiagnosticsViewOpen } from "./diagnostics.js";
 import {
   getSelectedCaptionTrack,
   loadTranscriptFromPlayerCaptions,
   loadTranscriptFromSelectedCaptionTrack,
-} from "./player-caption-capture.js";
-import { ytTranslatorState } from "./state.js";
-import { resetTranslateState } from "./translate.js";
+} from "../captions/player-caption-capture.js";
+import { ytTranslatorState } from "../state.js";
+import { resetTranslateState } from "../translate.js";
 import {
   getRecommendationsColumn,
   getVideoId,
   getVideoTitle,
   isWatchPage,
-} from "./youtube-page.js";
+} from "../youtube/youtube-page.js";
 
 // Internal helper for createSidebar.
 // Updates the sidebar title text from the current YouTube video title.

@@ -4,10 +4,10 @@ import {
   CHAT_SEND_BUTTON_ID,
   SELECTED_CAPTION_ID,
   TRANSLATE_BUTTON_ID,
-} from "./constants.js";
-import { ytTranslatorState } from "./state.js";
-import { resetTranslateState, submitTranslatePrompt } from "./translate.js";
-import { getVideoId, getVideoTitle } from "./youtube-page.js";
+} from "../dom-ids.js";
+import { ytTranslatorState } from "../state.js";
+import { resetTranslateState, submitTranslatePrompt } from "../translate.js";
+import { getVideoId, getVideoTitle } from "../youtube/youtube-page.js";
 
 // Internal helper for submitChatPrompt.
 // Creates a chat message record with a unique ID and timestamp.

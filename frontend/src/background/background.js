@@ -1,10 +1,11 @@
+import { LATENCY_DIAGNOSTICS_STORAGE_KEY } from "../shared/storage-keys.js";
+
 const BACKEND_CHAT_URL = "http://127.0.0.1:8000/api/chat";
 const BACKEND_TRANSLATE_URL = "http://127.0.0.1:8000/api/translate";
 const BACKEND_TRANSLATE_LEARNING_URL = "http://127.0.0.1:8000/api/translate/learning";
 const CHAT_REQUEST_TIMEOUT_MS = 15000;
 const TRANSLATE_REQUEST_TIMEOUT_MS = 10000;
 const TRANSLATE_LEARNING_REQUEST_TIMEOUT_MS = 15000;
-const LATENCY_DIAGNOSTICS_STORAGE_KEY = "ytTranslatorLatencyDiagnostics";
 const MAX_LATENCY_DIAGNOSTICS_RECORDS = 100;
 
 function createLatencyRequestId() {

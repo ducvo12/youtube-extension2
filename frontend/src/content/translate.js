@@ -1,4 +1,4 @@
-import { renderSelectedCaptionPill } from "./chat.js";
+import { renderSelectedCaptionPill } from "./chat/chat.js";
 import { ytTranslatorState } from "./state.js";
 
 // Exported for caption selection handlers and translation request flow.

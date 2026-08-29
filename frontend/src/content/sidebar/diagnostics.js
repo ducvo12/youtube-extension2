@@ -5,9 +5,9 @@ import {
   DIAGNOSTICS_PANEL_ID,
   DIAGNOSTICS_REFRESH_BUTTON_ID,
   DIAGNOSTICS_TABLE_ID,
-  LATENCY_DIAGNOSTICS_STORAGE_KEY,
-} from "./constants.js";
-import { ytTranslatorState } from "./state.js";
+} from "../dom-ids.js";
+import { LATENCY_DIAGNOSTICS_STORAGE_KEY } from "../../shared/storage-keys.js";
+import { ytTranslatorState } from "../state.js";
 
 // Internal helper for the diagnostics view.
 // Shows milliseconds compactly while keeping missing values obvious.

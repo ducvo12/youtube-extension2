@@ -1,14 +1,14 @@
-import { renderSelectedCaptionPill } from "./chat.js";
+import { renderSelectedCaptionPill } from "../chat/chat.js";
 import {
   CAPTION_DISPLAY_SEGMENT_OFFSET,
   CAPTION_END_GRACE_MS,
-  CAPTION_RIVER_ID,
   CAPTION_START_LEAD_MS,
-} from "./constants.js";
-import { setPlayerCaptureButtonVisible, setTranscriptStatus } from "./sidebar.js";
-import { ytTranslatorState } from "./state.js";
-import { resetTranslateState } from "./translate.js";
-import { getPlaybackTimeMs, isAdShowing } from "./youtube-page.js";
+} from "../caption-timing.js";
+import { CAPTION_RIVER_ID } from "../dom-ids.js";
+import { setPlayerCaptureButtonVisible, setTranscriptStatus } from "../sidebar/sidebar.js";
+import { ytTranslatorState } from "../state.js";
+import { resetTranslateState } from "../translate.js";
+import { getPlaybackTimeMs, isAdShowing } from "../youtube/youtube-page.js";
 
 // Internal helper for updateCaptionRiver.
 // Finds which transcript segment matches the current playback time.
