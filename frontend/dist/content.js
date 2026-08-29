@@ -85,6 +85,210 @@
   var SELECTED_CAPTION_ID = "yt-translator-selected-caption";
   var TRANSLATE_BUTTON_ID = "yt-translator-translate-button";
 
+  // frontend/src/content/chat/markdown.js
+  function renderAssistantMarkdown(markdown) {
+    const fragment = document.createDocumentFragment();
+    const lines = String(markdown || "").replace(/\r\n?/g, "\n").split("\n");
+    let paragraphLines = [];
+    let currentList = null;
+    function flushParagraph() {
+      if (!paragraphLines.length) {
+        return;
+      }
+      const paragraph = document.createElement("p");
+      appendInlineMarkdown(paragraph, paragraphLines.join(" "));
+      fragment.appendChild(paragraph);
+      paragraphLines = [];
+    }
+    function closeList() {
+      currentList = null;
+    }
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        flushParagraph();
+        closeList();
+        continue;
+      }
+      const bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
+      if (bulletMatch) {
+        flushParagraph();
+        if (!currentList) {
+          currentList = document.createElement("ul");
+          fragment.appendChild(currentList);
+        }
+        const item = document.createElement("li");
+        appendInlineMarkdown(item, bulletMatch[1]);
+        currentList.appendChild(item);
+        continue;
+      }
+      closeList();
+      paragraphLines.push(trimmed);
+    }
+    flushParagraph();
+    return fragment;
+  }
+  function appendInlineMarkdown(parent, text) {
+    const pattern = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+    let lastIndex = 0;
+    for (const match of text.matchAll(pattern)) {
+      if (match.index > lastIndex) {
+        parent.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      const token = match[0];
+      if (token.startsWith("**")) {
+        const strong = document.createElement("strong");
+        strong.textContent = token.slice(2, -2);
+        parent.appendChild(strong);
+      } else if (token.startsWith("*")) {
+        const emphasis = document.createElement("em");
+        emphasis.textContent = token.slice(1, -1);
+        parent.appendChild(emphasis);
+      } else if (token.startsWith("`")) {
+        const code = document.createElement("code");
+        code.textContent = token.slice(1, -1);
+        parent.appendChild(code);
+      }
+      lastIndex = match.index + token.length;
+    }
+    if (lastIndex < text.length) {
+      parent.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+  }
+
+  // frontend/src/content/chat/selected-caption.js
+  function createSelectedCaptionClearButton(renderOptions) {
+    const clearButton = document.createElement("button");
+    clearButton.className = "yt-translator-selected-caption__clear";
+    clearButton.type = "button";
+    clearButton.textContent = "x";
+    clearButton.setAttribute("aria-label", "Clear selected caption text");
+    clearButton.addEventListener("click", () => {
+      ytTranslatorState.selection.captionText = "";
+      renderOptions.onClearCaption?.();
+      window.getSelection()?.removeAllRanges();
+      renderSelectedCaptionPill(renderOptions);
+      document.getElementById(CHAT_INPUT_ID)?.focus();
+    });
+    return clearButton;
+  }
+  function createSelectedCaptionChunkNode(chunk) {
+    const chunkNode = document.createElement("span");
+    chunkNode.className = "yt-translator-selected-caption__chunk";
+    chunkNode.tabIndex = 0;
+    chunkNode.textContent = chunk.source;
+    const tooltip = document.createElement("span");
+    tooltip.className = "yt-translator-selected-caption__tooltip";
+    tooltip.setAttribute("role", "tooltip");
+    const definition = document.createElement("span");
+    definition.className = "yt-translator-selected-caption__tooltip-definition";
+    definition.textContent = chunk.definition || "No definition returned.";
+    tooltip.appendChild(definition);
+    if (chunk.natural) {
+      const natural = document.createElement("span");
+      natural.className = "yt-translator-selected-caption__tooltip-meta";
+      natural.textContent = `Maps to: ${chunk.natural}`;
+      tooltip.appendChild(natural);
+    }
+    if (chunk.role) {
+      const role = document.createElement("span");
+      role.className = "yt-translator-selected-caption__tooltip-meta";
+      role.textContent = chunk.role;
+      tooltip.appendChild(role);
+    }
+    if (chunk.note) {
+      const note = document.createElement("span");
+      note.className = "yt-translator-selected-caption__tooltip-note";
+      note.textContent = chunk.note;
+      tooltip.appendChild(note);
+    }
+    chunkNode.appendChild(tooltip);
+    return chunkNode;
+  }
+  function renderSelectedCaptionPill(renderOptions = {}) {
+    const contextNode = document.getElementById(SELECTED_CAPTION_ID);
+    if (!contextNode) {
+      return;
+    }
+    contextNode.textContent = "";
+    contextNode.hidden = false;
+    contextNode.classList.toggle("yt-translator-selected-caption--empty", !ytTranslatorState.selection.captionText);
+    contextNode.classList.toggle(
+      "yt-translator-selected-caption--translated",
+      Boolean(
+        ytTranslatorState.translate.isWaiting || ytTranslatorState.translate.result || ytTranslatorState.translate.error
+      )
+    );
+    if (!ytTranslatorState.selection.captionText) {
+      const label2 = document.createElement("span");
+      label2.className = "yt-translator-selected-caption__label";
+      label2.textContent = "Tip";
+      const text = document.createElement("span");
+      text.className = "yt-translator-selected-caption__text yt-translator-selected-caption__text--empty";
+      text.textContent = "Highlight captions to select";
+      contextNode.append(label2, text);
+      return;
+    }
+    const header = document.createElement("div");
+    header.className = "yt-translator-selected-caption__header";
+    const label = document.createElement("span");
+    label.className = "yt-translator-selected-caption__label";
+    label.textContent = "Selected";
+    const actions = document.createElement("div");
+    actions.className = "yt-translator-selected-caption__actions";
+    const translateButton = document.createElement("button");
+    translateButton.id = TRANSLATE_BUTTON_ID;
+    translateButton.className = "yt-translator-selected-caption__translate";
+    translateButton.type = "button";
+    translateButton.textContent = ytTranslatorState.translate.isWaiting ? "Translating..." : "Translate";
+    translateButton.disabled = ytTranslatorState.translate.isWaiting;
+    translateButton.setAttribute("aria-label", "Translate selected caption text");
+    translateButton.addEventListener("click", () => renderOptions.onTranslateCaption?.());
+    actions.append(translateButton, createSelectedCaptionClearButton(renderOptions));
+    header.append(label, actions);
+    const sourceBlock = document.createElement("div");
+    sourceBlock.className = "yt-translator-selected-caption__source";
+    const sourceText = document.createElement("div");
+    sourceText.className = "yt-translator-selected-caption__source-text";
+    const chunks = ytTranslatorState.translate.chunks.filter((chunk) => chunk?.source);
+    if (chunks.length) {
+      sourceText.classList.add("yt-translator-selected-caption__source-text--chunked");
+      for (const chunk of chunks) {
+        sourceText.appendChild(createSelectedCaptionChunkNode(chunk));
+      }
+    } else {
+      sourceText.textContent = ytTranslatorState.selection.captionText;
+    }
+    sourceBlock.appendChild(sourceText);
+    contextNode.append(header, sourceBlock);
+    if (ytTranslatorState.translate.isWaiting || ytTranslatorState.translate.result || ytTranslatorState.translate.error) {
+      const translationBlock = document.createElement("div");
+      translationBlock.className = "yt-translator-selected-caption__translation";
+      translationBlock.classList.toggle(
+        "yt-translator-selected-caption__translation--error",
+        Boolean(ytTranslatorState.translate.error)
+      );
+      const translationLabel = document.createElement("div");
+      translationLabel.className = "yt-translator-selected-caption__label";
+      translationLabel.textContent = "English";
+      const translationText = document.createElement("p");
+      translationText.className = "yt-translator-selected-caption__translation-text";
+      translationText.textContent = ytTranslatorState.translate.isWaiting ? "Translating..." : ytTranslatorState.translate.error || ytTranslatorState.translate.result;
+      translationBlock.append(translationLabel, translationText);
+      if (ytTranslatorState.translate.errorDetails) {
+        const details = document.createElement("details");
+        details.className = "yt-translator-selected-caption__details";
+        const summary = document.createElement("summary");
+        summary.textContent = "Error details";
+        const detailsText = document.createElement("pre");
+        detailsText.textContent = JSON.stringify(ytTranslatorState.translate.errorDetails, null, 2);
+        details.append(summary, detailsText);
+        translationBlock.appendChild(details);
+      }
+      contextNode.appendChild(translationBlock);
+    }
+  }
+
   // frontend/src/content/translate.js
   function resetTranslateState() {
     ytTranslatorState.translate.activeRequest += 1;
@@ -119,7 +323,7 @@
     const text = ytTranslatorState.selection.captionText.trim();
     if (!text) {
       resetTranslateState();
-      renderSelectedCaptionPill();
+      renderSelectedCaptionPill2();
       return;
     }
     ytTranslatorState.translate.isWaiting = true;
@@ -129,7 +333,7 @@
     ytTranslatorState.translate.errorDetails = null;
     const requestId = ytTranslatorState.translate.activeRequest + 1;
     ytTranslatorState.translate.activeRequest = requestId;
-    renderSelectedCaptionPill();
+    renderSelectedCaptionPill2();
     try {
       const response = await sendTranslatePromptToBackground({
         text,
@@ -152,7 +356,7 @@
     } finally {
       if (requestId === ytTranslatorState.translate.activeRequest) {
         ytTranslatorState.translate.isWaiting = false;
-        renderSelectedCaptionPill();
+        renderSelectedCaptionPill2();
       }
     }
   }
@@ -478,75 +682,6 @@
     detailsNode.append(summary, detailsText);
     return detailsNode;
   }
-  function renderAssistantMarkdown(markdown) {
-    const fragment = document.createDocumentFragment();
-    const lines = String(markdown || "").replace(/\r\n?/g, "\n").split("\n");
-    let paragraphLines = [];
-    let currentList = null;
-    function flushParagraph() {
-      if (!paragraphLines.length) {
-        return;
-      }
-      const paragraph = document.createElement("p");
-      appendInlineMarkdown(paragraph, paragraphLines.join(" "));
-      fragment.appendChild(paragraph);
-      paragraphLines = [];
-    }
-    function closeList() {
-      currentList = null;
-    }
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        flushParagraph();
-        closeList();
-        continue;
-      }
-      const bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
-      if (bulletMatch) {
-        flushParagraph();
-        if (!currentList) {
-          currentList = document.createElement("ul");
-          fragment.appendChild(currentList);
-        }
-        const item = document.createElement("li");
-        appendInlineMarkdown(item, bulletMatch[1]);
-        currentList.appendChild(item);
-        continue;
-      }
-      closeList();
-      paragraphLines.push(trimmed);
-    }
-    flushParagraph();
-    return fragment;
-  }
-  function appendInlineMarkdown(parent, text) {
-    const pattern = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
-    let lastIndex = 0;
-    for (const match of text.matchAll(pattern)) {
-      if (match.index > lastIndex) {
-        parent.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
-      }
-      const token = match[0];
-      if (token.startsWith("**")) {
-        const strong = document.createElement("strong");
-        strong.textContent = token.slice(2, -2);
-        parent.appendChild(strong);
-      } else if (token.startsWith("*")) {
-        const emphasis = document.createElement("em");
-        emphasis.textContent = token.slice(1, -1);
-        parent.appendChild(emphasis);
-      } else if (token.startsWith("`")) {
-        const code = document.createElement("code");
-        code.textContent = token.slice(1, -1);
-        parent.appendChild(code);
-      }
-      lastIndex = match.index + token.length;
-    }
-    if (lastIndex < text.length) {
-      parent.appendChild(document.createTextNode(text.slice(lastIndex)));
-    }
-  }
   function getTranscriptContextPreview() {
     if (!ytTranslatorState.transcript.segments.length) {
       return "";
@@ -574,136 +709,11 @@
       river.scrollTop = river.scrollHeight;
     }
   }
-  function createSelectedCaptionClearButton() {
-    const clearButton = document.createElement("button");
-    clearButton.className = "yt-translator-selected-caption__clear";
-    clearButton.type = "button";
-    clearButton.textContent = "x";
-    clearButton.setAttribute("aria-label", "Clear selected caption text");
-    clearButton.addEventListener("click", () => {
-      ytTranslatorState.selection.captionText = "";
-      resetTranslateState();
-      window.getSelection()?.removeAllRanges();
-      renderSelectedCaptionPill();
-      document.getElementById(CHAT_INPUT_ID)?.focus();
+  function renderSelectedCaptionPill2() {
+    renderSelectedCaptionPill({
+      onClearCaption: resetTranslateState,
+      onTranslateCaption: submitTranslatePrompt
     });
-    return clearButton;
-  }
-  function createSelectedCaptionChunkNode(chunk) {
-    const chunkNode = document.createElement("span");
-    chunkNode.className = "yt-translator-selected-caption__chunk";
-    chunkNode.tabIndex = 0;
-    chunkNode.textContent = chunk.source;
-    const tooltip = document.createElement("span");
-    tooltip.className = "yt-translator-selected-caption__tooltip";
-    tooltip.setAttribute("role", "tooltip");
-    const definition = document.createElement("span");
-    definition.className = "yt-translator-selected-caption__tooltip-definition";
-    definition.textContent = chunk.definition || "No definition returned.";
-    tooltip.appendChild(definition);
-    if (chunk.natural) {
-      const natural = document.createElement("span");
-      natural.className = "yt-translator-selected-caption__tooltip-meta";
-      natural.textContent = `Maps to: ${chunk.natural}`;
-      tooltip.appendChild(natural);
-    }
-    if (chunk.role) {
-      const role = document.createElement("span");
-      role.className = "yt-translator-selected-caption__tooltip-meta";
-      role.textContent = chunk.role;
-      tooltip.appendChild(role);
-    }
-    if (chunk.note) {
-      const note = document.createElement("span");
-      note.className = "yt-translator-selected-caption__tooltip-note";
-      note.textContent = chunk.note;
-      tooltip.appendChild(note);
-    }
-    chunkNode.appendChild(tooltip);
-    return chunkNode;
-  }
-  function renderSelectedCaptionPill() {
-    const contextNode = document.getElementById(SELECTED_CAPTION_ID);
-    if (!contextNode) {
-      return;
-    }
-    contextNode.textContent = "";
-    contextNode.hidden = false;
-    contextNode.classList.toggle("yt-translator-selected-caption--empty", !ytTranslatorState.selection.captionText);
-    contextNode.classList.toggle(
-      "yt-translator-selected-caption--translated",
-      Boolean(
-        ytTranslatorState.translate.isWaiting || ytTranslatorState.translate.result || ytTranslatorState.translate.error
-      )
-    );
-    if (!ytTranslatorState.selection.captionText) {
-      const label2 = document.createElement("span");
-      label2.className = "yt-translator-selected-caption__label";
-      label2.textContent = "Tip";
-      const text = document.createElement("span");
-      text.className = "yt-translator-selected-caption__text yt-translator-selected-caption__text--empty";
-      text.textContent = "Highlight captions to select";
-      contextNode.append(label2, text);
-      return;
-    }
-    const header = document.createElement("div");
-    header.className = "yt-translator-selected-caption__header";
-    const label = document.createElement("span");
-    label.className = "yt-translator-selected-caption__label";
-    label.textContent = "Selected";
-    const actions = document.createElement("div");
-    actions.className = "yt-translator-selected-caption__actions";
-    const translateButton = document.createElement("button");
-    translateButton.id = TRANSLATE_BUTTON_ID;
-    translateButton.className = "yt-translator-selected-caption__translate";
-    translateButton.type = "button";
-    translateButton.textContent = ytTranslatorState.translate.isWaiting ? "Translating..." : "Translate";
-    translateButton.disabled = ytTranslatorState.translate.isWaiting;
-    translateButton.setAttribute("aria-label", "Translate selected caption text");
-    translateButton.addEventListener("click", submitTranslatePrompt);
-    actions.append(translateButton, createSelectedCaptionClearButton());
-    header.append(label, actions);
-    const sourceBlock = document.createElement("div");
-    sourceBlock.className = "yt-translator-selected-caption__source";
-    const sourceText = document.createElement("div");
-    sourceText.className = "yt-translator-selected-caption__source-text";
-    const chunks = ytTranslatorState.translate.chunks.filter((chunk) => chunk?.source);
-    if (chunks.length) {
-      sourceText.classList.add("yt-translator-selected-caption__source-text--chunked");
-      for (const chunk of chunks) {
-        sourceText.appendChild(createSelectedCaptionChunkNode(chunk));
-      }
-    } else {
-      sourceText.textContent = ytTranslatorState.selection.captionText;
-    }
-    sourceBlock.appendChild(sourceText);
-    contextNode.append(header, sourceBlock);
-    if (ytTranslatorState.translate.isWaiting || ytTranslatorState.translate.result || ytTranslatorState.translate.error) {
-      const translationBlock = document.createElement("div");
-      translationBlock.className = "yt-translator-selected-caption__translation";
-      translationBlock.classList.toggle(
-        "yt-translator-selected-caption__translation--error",
-        Boolean(ytTranslatorState.translate.error)
-      );
-      const translationLabel = document.createElement("div");
-      translationLabel.className = "yt-translator-selected-caption__label";
-      translationLabel.textContent = "English";
-      const translationText = document.createElement("p");
-      translationText.className = "yt-translator-selected-caption__translation-text";
-      translationText.textContent = ytTranslatorState.translate.isWaiting ? "Translating..." : ytTranslatorState.translate.error || ytTranslatorState.translate.result;
-      translationBlock.append(translationLabel, translationText);
-      if (ytTranslatorState.translate.errorDetails) {
-        const details = document.createElement("details");
-        details.className = "yt-translator-selected-caption__details";
-        const summary = document.createElement("summary");
-        summary.textContent = "Error details";
-        const detailsText = document.createElement("pre");
-        detailsText.textContent = JSON.stringify(ytTranslatorState.translate.errorDetails, null, 2);
-        details.append(summary, detailsText);
-        translationBlock.appendChild(details);
-      }
-      contextNode.appendChild(translationBlock);
-    }
   }
   function renderChatRiver() {
     const river = document.getElementById(CHAT_RIVER_ID);
@@ -935,7 +945,7 @@
       resetTranslateState();
     }
     ytTranslatorState.selection.captionText = nextSelectedCaptionText;
-    renderSelectedCaptionPill();
+    renderSelectedCaptionPill2();
   }
   function scheduleCaptionSelectionSnap() {
     window.setTimeout(snapCaptionSelectionToWords, 0);
@@ -1963,7 +1973,7 @@
         ytTranslatorState.selection.captionText = "";
         resetTranslateState();
         window.getSelection()?.removeAllRanges();
-        renderSelectedCaptionPill();
+        renderSelectedCaptionPill2();
         if (ytTranslatorState.playerCapture.userAllowedCaptionCapture || ytTranslatorState.transcript.loadedVideoId === getVideoId()) {
           loadTranscriptFromSelectedCaptionTrack(false);
           return;
@@ -2013,7 +2023,7 @@
       renderSidebarOpenState();
       setDiagnosticsViewOpen(ytTranslatorState.diagnostics.isViewOpen);
       renderChatRiver();
-      renderSelectedCaptionPill();
+      renderSelectedCaptionPill2();
       setInitialTranscriptPrompt();
       return;
     }
@@ -2088,7 +2098,7 @@
     renderSidebarOpenState();
     setDiagnosticsViewOpen(ytTranslatorState.diagnostics.isViewOpen);
     renderChatRiver();
-    renderSelectedCaptionPill();
+    renderSelectedCaptionPill2();
     updateSidebarTitle();
     setInitialTranscriptPrompt();
   }

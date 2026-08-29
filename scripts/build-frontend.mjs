@@ -19,6 +19,8 @@ const sourceFiles = [
   "frontend/src/content/captions/transcript-parser.js",
   "frontend/src/content/youtube/youtube-page.js",
   "frontend/src/content/chat/chat.js",
+  "frontend/src/content/chat/markdown.js",
+  "frontend/src/content/chat/selected-caption.js",
   "frontend/src/content/translate.js",
   "frontend/src/content/captions/caption-river.js",
   "frontend/src/content/captions/player-caption-capture.js",
