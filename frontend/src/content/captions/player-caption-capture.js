@@ -3,12 +3,12 @@ import {
   refreshAvailableCaptionTracks,
   renderCaptionTrackSelector,
 } from "../sidebar/caption-track-selector.js";
-import { CAPTION_TRACK_SELECT_ID, PLAYER_CAPTURE_BUTTON_ID } from "../dom-ids.js";
+import { CAPTION_TRACK_SELECT_ID, PLAYER_CAPTURE_BUTTON_ID } from "../shared/dom-ids.js";
 import {
   setPlayerCaptureButtonVisible,
   setTranscriptStatus,
 } from "../sidebar/sidebar.js";
-import { ytTranslatorState } from "../state.js";
+import { ytTranslatorState } from "../shared/state.js";
 import { parseTranscriptBodyAuto } from "./transcript-parser.js";
 import {
   createCaptionTrackFromUrl,

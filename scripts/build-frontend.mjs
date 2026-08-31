@@ -10,10 +10,10 @@ const shouldWatch = process.argv.includes("--watch");
 
 const sourceFiles = [
   "frontend/src/content.js",
-  "frontend/src/shared/storage-keys.js",
-  "frontend/src/content/dom-ids.js",
-  "frontend/src/content/caption-timing.js",
-  "frontend/src/content/state.js",
+  "frontend/src/content/shared/storage-keys.js",
+  "frontend/src/content/shared/dom-ids.js",
+  "frontend/src/content/shared/caption-timing.js",
+  "frontend/src/content/shared/state.js",
   "frontend/src/content/sidebar/diagnostics.js",
   "frontend/src/content/sidebar/caption-track-selector.js",
   "frontend/src/content/captions/transcript-parser.js",
@@ -26,7 +26,7 @@ const sourceFiles = [
   "frontend/src/content/captions/player-caption-capture.js",
   "frontend/src/content/sidebar/sidebar.js",
   "frontend/src/content/lifecycle.js",
-  "frontend/src/background/background.js",
+  "frontend/src/background.js",
   "frontend/src/page-caption-capturer.js",
 ];
 
@@ -56,7 +56,7 @@ async function buildFrontend() {
   await mkdir(distDir, { recursive: true });
   await Promise.all([
     buildContentScript(),
-    buildStandaloneScript("frontend/src/background/background.js", "background.js"),
+    buildStandaloneScript("frontend/src/background.js", "background.js"),
     buildStandaloneScript("frontend/src/page-caption-capturer.js", "page-caption-capturer.js"),
   ]);
 }

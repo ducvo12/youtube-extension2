@@ -1,4 +1,4 @@
-import { LATENCY_DIAGNOSTICS_STORAGE_KEY } from "../shared/storage-keys.js";
+import { LATENCY_DIAGNOSTICS_STORAGE_KEY } from "./content/shared/storage-keys.js";
 
 const BACKEND_CHAT_URL = "http://127.0.0.1:8000/api/chat";
 const BACKEND_TRANSLATE_URL = "http://127.0.0.1:8000/api/translate";

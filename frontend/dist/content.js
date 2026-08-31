@@ -1,5 +1,5 @@
 (() => {
-  // frontend/src/content/state.js
+  // frontend/src/content/shared/state.js
   var ytTranslatorState = {
     sidebar: {
       updateTimer: null,
@@ -62,7 +62,7 @@
     }
   };
 
-  // frontend/src/content/dom-ids.js
+  // frontend/src/content/shared/dom-ids.js
   var SIDEBAR_ID = "yt-translator-sidebar";
   var SIDEBAR_BODY_ID = "yt-translator-sidebar-body";
   var SIDEBAR_TOGGLE_BUTTON_ID = "yt-translator-sidebar-toggle";
@@ -837,7 +837,7 @@
     }
   }
 
-  // frontend/src/content/caption-timing.js
+  // frontend/src/content/shared/caption-timing.js
   var CAPTION_START_LEAD_MS = 0;
   var CAPTION_END_GRACE_MS = 500;
   var CAPTION_DISPLAY_SEGMENT_OFFSET = 0;
@@ -1083,7 +1083,7 @@
     select.disabled = ytTranslatorState.captionTracks.available.length <= 1;
   }
 
-  // frontend/src/shared/storage-keys.js
+  // frontend/src/content/shared/storage-keys.js
   var LATENCY_DIAGNOSTICS_STORAGE_KEY = "ytTranslatorLatencyDiagnostics";
   var SIDEBAR_OPEN_STORAGE_KEY = "ytTranslatorSidebarOpen";
 

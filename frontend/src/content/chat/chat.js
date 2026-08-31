@@ -2,10 +2,10 @@ import {
   CHAT_INPUT_ID,
   CHAT_RIVER_ID,
   CHAT_SEND_BUTTON_ID,
-} from "../dom-ids.js";
+} from "../shared/dom-ids.js";
 import { renderAssistantMarkdown } from "./markdown.js";
 import { renderSelectedCaptionPill as renderSelectedCaptionPillView } from "./selected-caption.js";
-import { ytTranslatorState } from "../state.js";
+import { ytTranslatorState } from "../shared/state.js";
 import { resetTranslateState, submitTranslatePrompt } from "../translate.js";
 import { getVideoId, getVideoTitle } from "../youtube/youtube-page.js";
 

@@ -1,5 +1,5 @@
 import { renderSelectedCaptionPill } from "./chat/chat.js";
-import { ytTranslatorState } from "./state.js";
+import { ytTranslatorState } from "./shared/state.js";
 
 // Exported for caption selection handlers and translation request flow.
 // Clears the selected-caption translation result and cancels older in-flight output.

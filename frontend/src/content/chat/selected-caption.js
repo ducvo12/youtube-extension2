@@ -2,8 +2,8 @@ import {
   CHAT_INPUT_ID,
   SELECTED_CAPTION_ID,
   TRANSLATE_BUTTON_ID,
-} from "../dom-ids.js";
-import { ytTranslatorState } from "../state.js";
+} from "../shared/dom-ids.js";
+import { ytTranslatorState } from "../shared/state.js";
 
 function createSelectedCaptionClearButton(renderOptions) {
   const clearButton = document.createElement("button");

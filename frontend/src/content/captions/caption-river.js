@@ -3,10 +3,10 @@ import {
   CAPTION_DISPLAY_SEGMENT_OFFSET,
   CAPTION_END_GRACE_MS,
   CAPTION_START_LEAD_MS,
-} from "../caption-timing.js";
-import { CAPTION_RIVER_ID } from "../dom-ids.js";
+} from "../shared/caption-timing.js";
+import { CAPTION_RIVER_ID } from "../shared/dom-ids.js";
 import { setPlayerCaptureButtonVisible, setTranscriptStatus } from "../sidebar/sidebar.js";
-import { ytTranslatorState } from "../state.js";
+import { ytTranslatorState } from "../shared/state.js";
 import { resetTranslateState } from "../translate.js";
 import { getPlaybackTimeMs, isAdShowing } from "../youtube/youtube-page.js";
 

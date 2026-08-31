@@ -1,8 +1,8 @@
 import {
   CAPTION_TRACK_GROUP_ID,
   CAPTION_TRACK_SELECT_ID,
-} from "../dom-ids.js";
-import { ytTranslatorState } from "../state.js";
+} from "../shared/dom-ids.js";
+import { ytTranslatorState } from "../shared/state.js";
 import {
   createCaptionTrackFromUrl,
   createSourceCaptionTrackFromUrl,

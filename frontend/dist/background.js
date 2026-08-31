@@ -1,8 +1,8 @@
 (() => {
-  // frontend/src/shared/storage-keys.js
+  // frontend/src/content/shared/storage-keys.js
   var LATENCY_DIAGNOSTICS_STORAGE_KEY = "ytTranslatorLatencyDiagnostics";
 
-  // frontend/src/background/background.js
+  // frontend/src/background.js
   var BACKEND_CHAT_URL = "http://127.0.0.1:8000/api/chat";
   var BACKEND_TRANSLATE_URL = "http://127.0.0.1:8000/api/translate";
   var BACKEND_TRANSLATE_LEARNING_URL = "http://127.0.0.1:8000/api/translate/learning";

@@ -22,15 +22,15 @@ import {
   SIDEBAR_TOGGLE_BUTTON_ID,
   TITLE_ID,
   TRANSCRIPT_STATUS_ID,
-} from "../dom-ids.js";
-import { SIDEBAR_OPEN_STORAGE_KEY } from "../../shared/storage-keys.js";
+} from "../shared/dom-ids.js";
+import { SIDEBAR_OPEN_STORAGE_KEY } from "../shared/storage-keys.js";
 import { setDiagnosticsViewOpen } from "./diagnostics.js";
 import {
   getSelectedCaptionTrack,
   loadTranscriptFromPlayerCaptions,
   loadTranscriptFromSelectedCaptionTrack,
 } from "../captions/player-caption-capture.js";
-import { ytTranslatorState } from "../state.js";
+import { ytTranslatorState } from "../shared/state.js";
 import { resetTranslateState } from "../translate.js";
 import {
   getRecommendationsColumn,
