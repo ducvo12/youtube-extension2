@@ -319,6 +319,7 @@ function sendBackendTranslateLearningReply(payload, sendResponse) {
   });
 }
 
+// how the extension frontend communicates with extension background script
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "CHAT_PROMPT") {
     sendBackendChatReply(message.payload, sendResponse);
