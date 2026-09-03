@@ -8,25 +8,29 @@
   ],
   "host_permissions": [
     "http://localhost:8000/*",
-    "http://127.0.0.1:8000/*",
-    "https://youtube.com/*",
-    "https://*.youtube.com/*",
-    "https://www.youtube.com/*",
-    "https://*.googlevideo.com/*"
+    "http://127.0.0.1:8000/*"
   ],
   "background": {
     "service_worker": "dist/background.js"
   },
   "web_accessible_resources": [
     {
-      "resources": ["dist/page-caption-capturer.js"],
-      "matches": ["https://www.youtube.com/*"]
+      "resources": [
+        "dist/page-caption-capturer.js"
+      ],
+      "matches": [
+        "https://www.youtube.com/*"
+      ]
     }
   ],
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/*"],
-      "css": ["styles.css"],
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "css": [
+        "styles.css"
+      ],
       "js": [
         "dist/content.js"
       ],
