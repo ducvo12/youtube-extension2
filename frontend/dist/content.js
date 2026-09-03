@@ -799,11 +799,11 @@
       return;
     }
     const prompt = input.value.trim();
+    input.value = "";
     if (!prompt) {
-      input.value = "";
       return;
     }
-    input.value = "";
+    const chatPayload = buildChatPayload(prompt);
     ytTranslatorState.chat.isWaitingForReply = true;
     ytTranslatorState.chat.messages.push(createChatMessage("user", prompt));
     const pendingReply = createChatMessage("assistant", "", "sending");
@@ -812,7 +812,7 @@
     ytTranslatorState.chat.activeRequest = requestId;
     renderChatRiver();
     try {
-      const response = await sendChatPromptToBackground(buildChatPayload(prompt));
+      const response = await sendChatPromptToBackground(chatPayload);
       if (requestId !== ytTranslatorState.chat.activeRequest) {
         return;
       }

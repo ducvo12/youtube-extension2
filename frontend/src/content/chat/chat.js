@@ -213,14 +213,16 @@ export async function submitChatPrompt() {
     return;
   }
 
+  // save the prompt, and then clear the user input box
   const prompt = input.value.trim();
+  input.value = "";
 
   if (!prompt) {
-    input.value = "";
     return;
   }
 
-  input.value = "";
+  const chatPayload = buildChatPayload(prompt);
+
   ytTranslatorState.chat.isWaitingForReply = true;
   ytTranslatorState.chat.messages.push(createChatMessage("user", prompt));
   const pendingReply = createChatMessage("assistant", "", "sending");
@@ -230,7 +232,7 @@ export async function submitChatPrompt() {
   renderChatRiver();
 
   try {
-    const response = await sendChatPromptToBackground(buildChatPayload(prompt));
+    const response = await sendChatPromptToBackground(chatPayload);
 
     if (requestId !== ytTranslatorState.chat.activeRequest) {
       return;

@@ -311,6 +311,11 @@ def format_chat_history(history: list[ChatHistoryMessage]) -> str:
         for message in history[-8:]
     )
 
+##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
 
 def build_chat_prompt(payload: ChatRequest) -> str:
     video_title = payload.video_context.title if payload.video_context else None
@@ -353,9 +358,7 @@ Current user question:
 {payload.message}
 """.strip()
 
-#######################################
 
-# PROMPT HERE
 def build_caption_learning_translation_prompt(payload: TranslateRequest) -> str:
     target_language = payload.target_language or get_default_translate_target_language()
     source_language = payload.source_language or "auto"
@@ -381,7 +384,11 @@ Caption:
 """.strip()
 
 
-#######################################
+##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
 
 
 def parse_gemini_json_object(response_text: str) -> dict[str, Any]:
@@ -740,6 +747,8 @@ async def echo(payload: EchoRequest) -> dict[str, Any]:
 
 @app.post("/api/chat")
 async def chat(payload: ChatRequest, request: Request) -> dict[str, Any]:
+    # print(payload.model_dump_json(indent=2))
+
     backend_start_time = time.perf_counter()
     result = await run_in_threadpool(generate_gemini_chat_response, payload)
 
