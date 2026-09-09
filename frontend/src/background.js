@@ -1,10 +1,8 @@
 import { LATENCY_DIAGNOSTICS_STORAGE_KEY } from "./content/shared/storage-keys.js";
 
 const BACKEND_CHAT_URL = "http://127.0.0.1:8000/api/chat";
-const BACKEND_TRANSLATE_URL = "http://127.0.0.1:8000/api/translate";
 const BACKEND_TRANSLATE_LEARNING_URL = "http://127.0.0.1:8000/api/translate/learning";
 const CHAT_REQUEST_TIMEOUT_MS = 15000;
-const TRANSLATE_REQUEST_TIMEOUT_MS = 10000;
 const TRANSLATE_LEARNING_REQUEST_TIMEOUT_MS = 15000;
 const MAX_LATENCY_DIAGNOSTICS_RECORDS = 100;
 
@@ -259,35 +257,6 @@ function sendBackendChatReply(payload, sendResponse) {
   });
 }
 
-function sendBackendTranslateReply(payload, sendResponse) {
-  const text = typeof payload?.text === "string" ? payload.text.trim() : "";
-
-  if (!text) {
-    sendResponse({ ok: false, error: "Missing text to translate" });
-    return;
-  }
-
-  sendBackendRequest({
-    backendUrl: BACKEND_TRANSLATE_URL,
-    payload: {
-      ...payload,
-      text,
-      targetLanguage: payload?.targetLanguage || "en",
-    },
-    requestLabel: "translate",
-    sendResponse,
-    timeoutMs: TRANSLATE_REQUEST_TIMEOUT_MS,
-    buildSuccessResponse: (body) => ({
-      ok: true,
-      translatedText: body.translatedText || "",
-      detectedSourceLanguage: body.detectedSourceLanguage,
-      sourceLanguage: body.sourceLanguage,
-      targetLanguage: body.targetLanguage,
-      provider: body.provider,
-    }),
-  });
-}
-
 function sendBackendTranslateLearningReply(payload, sendResponse) {
   const text = typeof payload?.text === "string" ? payload.text.trim() : "";
 
@@ -323,11 +292,6 @@ function sendBackendTranslateLearningReply(payload, sendResponse) {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "CHAT_PROMPT") {
     sendBackendChatReply(message.payload, sendResponse);
-    return true;
-  }
-
-  if (message?.type === "TRANSLATE_TEXT") {
-    sendBackendTranslateReply(message.payload, sendResponse);
     return true;
   }
 

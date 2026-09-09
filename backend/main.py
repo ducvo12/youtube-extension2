@@ -27,8 +27,7 @@ DEFAULT_GEMINI_LEARNING_MODEL = "gemini-3.5-flash-lite"
 DEFAULT_GEMINI_THINKING_LEVEL = "minimal"
 GEMINI_CHAT_MAX_OUTPUT_TOKENS = 700
 GEMINI_LEARNING_MAX_OUTPUT_TOKENS = 550
-DEFAULT_TRANSLATE_TARGET_LANGUAGE = "en"
-DEFAULT_TRANSLATE_LOCATION = "global"
+DEFAULT_TARGET_LANGUAGE = "en"
 ENV_FILE = BASE_DIR / ".env"
 VALID_GEMINI_THINKING_LEVELS = {"minimal", "low", "medium", "high"}
 
@@ -250,21 +249,6 @@ def get_gemini_api_key() -> str:
     return os.getenv("GEMINI_API_KEY", "").strip()
 
 
-def get_google_cloud_project() -> str:
-    return os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
-
-
-def get_translate_location() -> str:
-    return os.getenv("GOOGLE_TRANSLATE_LOCATION", "").strip() or DEFAULT_TRANSLATE_LOCATION
-
-
-def get_default_translate_target_language() -> str:
-    return (
-        os.getenv("GOOGLE_TRANSLATE_TARGET_LANGUAGE", "").strip()
-        or DEFAULT_TRANSLATE_TARGET_LANGUAGE
-    )
-
-
 def elapsed_ms(start_time: float) -> int:
     return round((time.perf_counter() - start_time) * 1000)
 
@@ -360,7 +344,7 @@ Current user question:
 
 
 def build_caption_learning_translation_prompt(payload: TranslateRequest) -> str:
-    target_language = payload.target_language or get_default_translate_target_language()
+    target_language = payload.target_language or DEFAULT_TARGET_LANGUAGE
     source_language = payload.source_language or "auto"
 
     return f"""
@@ -602,7 +586,7 @@ def translate_caption_with_gemini(payload: TranslateRequest) -> dict[str, Any]:
             for chunk in parsed.chunks
         ],
         "sourceLanguage": payload.source_language or "auto",
-        "targetLanguage": payload.target_language or get_default_translate_target_language(),
+        "targetLanguage": payload.target_language or DEFAULT_TARGET_LANGUAGE,
         "provider": "google-gemini",
         "model": model,
         "thinkingLevel": get_gemini_thinking_level(),
@@ -611,89 +595,6 @@ def translate_caption_with_gemini(payload: TranslateRequest) -> dict[str, Any]:
         "promptLength": len(prompt),
         "maxOutputTokens": GEMINI_LEARNING_MAX_OUTPUT_TOKENS,
         "structuredOutput": True,
-    }
-
-
-def translate_text_with_google(payload: TranslateRequest) -> dict[str, Any]:
-    project_id = get_google_cloud_project()
-
-    if not project_id:
-        raise_api_error(
-            status_code=503,
-            code="MISSING_GOOGLE_CLOUD_PROJECT",
-            message="GOOGLE_CLOUD_PROJECT is not configured on the backend.",
-            hint=(
-                "Set GOOGLE_CLOUD_PROJECT in backend/.env, then restart uvicorn. "
-                "Authenticate with gcloud application-default credentials or "
-                "GOOGLE_APPLICATION_CREDENTIALS."
-            ),
-            details={
-                "envFileExists": ENV_FILE.exists(),
-                "envFilePath": str(ENV_FILE),
-            },
-        )
-
-    try:
-        from google.cloud import translate_v3 as translate
-    except ImportError as error:
-        raise create_api_exception(
-            status_code=503,
-            code="GOOGLE_TRANSLATE_SDK_MISSING",
-            message="google-cloud-translate is not installed.",
-            hint="Run pip install -r requirements.txt inside the backend virtualenv.",
-        ) from error
-
-    target_language = payload.target_language or get_default_translate_target_language()
-    source_language = (payload.source_language or "").strip()
-    request: dict[str, Any] = {
-        "parent": f"projects/{project_id}/locations/{get_translate_location()}",
-        "contents": [payload.text],
-        "mime_type": "text/plain",
-        "target_language_code": target_language,
-    }
-
-    if source_language and source_language.lower() != "auto":
-        request["source_language_code"] = source_language
-
-    try:
-        provider_start_time = time.perf_counter()
-        client = translate.TranslationServiceClient()
-        response = client.translate_text(request=request)
-        provider_ms = elapsed_ms(provider_start_time)
-    except Exception as error:
-        raise create_api_exception(
-            status_code=502,
-            code="GOOGLE_TRANSLATE_REQUEST_FAILED",
-            message="Google Cloud Translation request failed.",
-            hint="Check Google Cloud credentials, Translation API enablement, billing, and project id.",
-            details={
-                "errorType": type(error).__name__,
-                "errorMessage": str(error),
-                "translateLocation": get_translate_location(),
-                "targetLanguage": target_language,
-            },
-        ) from error
-
-    translation = response.translations[0] if response.translations else None
-
-    if not translation or not translation.translated_text:
-        raise_api_error(
-            status_code=502,
-            code="GOOGLE_TRANSLATE_EMPTY_RESPONSE",
-            message="Google Cloud Translation returned an empty response.",
-            details={
-                "translateLocation": get_translate_location(),
-                "targetLanguage": target_language,
-            },
-        )
-
-    return {
-        "translatedText": translation.translated_text,
-        "detectedSourceLanguage": translation.detected_language_code or None,
-        "sourceLanguage": source_language or "auto",
-        "targetLanguage": target_language,
-        "provider": "google-cloud-translate-v3",
-        "providerMs": provider_ms,
     }
 
 
@@ -722,9 +623,6 @@ async def debug_config() -> dict[str, Any]:
         "geminiLearningModel": get_gemini_learning_model(),
         "geminiThinkingLevel": get_gemini_thinking_level(),
         "legacyGeminiModelConfigured": bool(os.getenv("GEMINI_MODEL", "").strip()),
-        "googleCloudProjectConfigured": bool(get_google_cloud_project()),
-        "translateLocation": get_translate_location(),
-        "translateTargetLanguage": get_default_translate_target_language(),
         "envFileExists": ENV_FILE.exists(),
         "envFilePath": str(ENV_FILE),
         "dotenvInstalled": load_dotenv is not None,
@@ -774,23 +672,6 @@ async def chat(payload: ChatRequest, request: Request) -> dict[str, Any]:
                 else ""
             ),
         },
-    }
-
-
-@app.post("/api/translate")
-async def translate_text(payload: TranslateRequest, request: Request) -> dict[str, Any]:
-    backend_start_time = time.perf_counter()
-    result = await run_in_threadpool(translate_text_with_google, payload)
-
-    return result | {
-        "diagnostics": build_backend_diagnostics(
-            request,
-            endpoint="/api/translate",
-            provider=result["provider"],
-            backend_start_time=backend_start_time,
-            provider_ms=result["providerMs"],
-            text_length=len(payload.text),
-        ),
     }
 
 

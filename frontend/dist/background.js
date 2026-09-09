@@ -4,10 +4,8 @@
 
   // frontend/src/background.js
   var BACKEND_CHAT_URL = "http://127.0.0.1:8000/api/chat";
-  var BACKEND_TRANSLATE_URL = "http://127.0.0.1:8000/api/translate";
   var BACKEND_TRANSLATE_LEARNING_URL = "http://127.0.0.1:8000/api/translate/learning";
   var CHAT_REQUEST_TIMEOUT_MS = 15e3;
-  var TRANSLATE_REQUEST_TIMEOUT_MS = 1e4;
   var TRANSLATE_LEARNING_REQUEST_TIMEOUT_MS = 15e3;
   var MAX_LATENCY_DIAGNOSTICS_RECORDS = 100;
   function createLatencyRequestId() {
@@ -227,32 +225,6 @@
       })
     });
   }
-  function sendBackendTranslateReply(payload, sendResponse) {
-    const text = typeof payload?.text === "string" ? payload.text.trim() : "";
-    if (!text) {
-      sendResponse({ ok: false, error: "Missing text to translate" });
-      return;
-    }
-    sendBackendRequest({
-      backendUrl: BACKEND_TRANSLATE_URL,
-      payload: {
-        ...payload,
-        text,
-        targetLanguage: payload?.targetLanguage || "en"
-      },
-      requestLabel: "translate",
-      sendResponse,
-      timeoutMs: TRANSLATE_REQUEST_TIMEOUT_MS,
-      buildSuccessResponse: (body) => ({
-        ok: true,
-        translatedText: body.translatedText || "",
-        detectedSourceLanguage: body.detectedSourceLanguage,
-        sourceLanguage: body.sourceLanguage,
-        targetLanguage: body.targetLanguage,
-        provider: body.provider
-      })
-    });
-  }
   function sendBackendTranslateLearningReply(payload, sendResponse) {
     const text = typeof payload?.text === "string" ? payload.text.trim() : "";
     if (!text) {
@@ -284,10 +256,6 @@
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "CHAT_PROMPT") {
       sendBackendChatReply(message.payload, sendResponse);
-      return true;
-    }
-    if (message?.type === "TRANSLATE_TEXT") {
-      sendBackendTranslateReply(message.payload, sendResponse);
       return true;
     }
     if (message?.type === "TRANSLATE_WITH_BREAKDOWN") {

@@ -16,17 +16,6 @@ Set `GEMINI_API_KEY` in `.env`. Chat uses `GEMINI_CHAT_MODEL`, caption breakdown
 use `GEMINI_LEARNING_MODEL`, and both default to `gemini-3.5-flash-lite`.
 `GEMINI_THINKING_LEVEL` defaults to `minimal` for lower-latency sidebar requests.
 
-For quick translation, set `GOOGLE_CLOUD_PROJECT` in `.env`. `GOOGLE_TRANSLATE_LOCATION`
-defaults to `global`, and `GOOGLE_TRANSLATE_TARGET_LANGUAGE` defaults to `en`.
-Authenticate Google Cloud locally with one of:
-
-```bash
-gcloud auth application-default login
-```
-
-or set `GOOGLE_APPLICATION_CREDENTIALS` to a service-account JSON file with Cloud
-Translation access.
-
 ## Run
 
 ```bash
@@ -41,7 +30,7 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 - `GET /api/debug/config` - non-secret backend config diagnostics
 - `GET /api/test/ping` - returns `pong`
 - `POST /api/chat` - Gemini chat response for the extension sidebar
-- `POST /api/translate` - Google Cloud Translation v3 text translation
+- `POST /api/translate/learning` - Gemini caption translation with a learning breakdown
 - `POST /api/test/echo` - echoes a JSON payload
 - `POST /api/test/explain` - placeholder contextual explanation response
 
