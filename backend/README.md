@@ -2,6 +2,19 @@
 
 FastAPI backend for the YouTube contextual language learning extension.
 
+## Code Layout
+
+- `main.py` creates the app, configures CORS, and registers routers.
+- `config.py` loads `.env` and provides shared settings.
+- `errors.py` provides API error helpers.
+- `diagnostics.py` builds request timing diagnostics.
+- `routes/chat.py` contains the chat route, models, prompt, and Gemini call.
+- `routes/translate.py` contains the quick translate route, models, prompt, and parsing.
+- `routes/system.py` contains service status, health, debug, and test routes.
+
+Keep feature-specific models and helpers beside their routes. Shared modules
+should not import route modules or `main.py`.
+
 ## Setup
 
 ```bash
