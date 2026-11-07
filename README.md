@@ -31,22 +31,7 @@ The project is designed for intermediate-to-advanced learners using native video
 - Google Gemini API via the Google Gen AI SDK
 - python-dotenv for local configuration
 
-## Technical Highlights
-
-- **Caption capture:** Injects a page-context script that observes YouTube's player caption requests, allowing the extension to use the same caption data requested by the video player.
-- **Playback synchronization:** Parses timed transcript segments and updates the sidebar against the current player position while accounting for gaps, video navigation, and advertisements.
-- **YouTube SPA support:** Resets video-specific state and refreshes the sidebar when YouTube changes videos without performing a full page reload.
-- **Context-aware AI requests:** Sends only relevant context—including nearby captions, selected text, video metadata, and recent messages—to the backend for focused language explanations.
-- **Extension/backend separation:** Routes API calls through the Manifest V3 background service worker so the Gemini API key remains in the local backend rather than being exposed in browser code.
-
 ## Local Installation
-
-### Prerequisites
-
-- Google Chrome
-- Node.js 18+ and npm
-- Python 3.10+
-- A [Google Gemini API key](https://aistudio.google.com/app/apikey)
 
 ### 1. Clone the repository
 
@@ -104,14 +89,3 @@ uvicorn main:app --reload --host 127.0.0.1 --port 8000
 4. Choose the repository's `frontend` directory.
 
 If you rebuild the frontend while Chrome is open, return to `chrome://extensions`, reload the extension, and refresh the YouTube tab.
-
-## Trying It Out
-
-1. Keep the backend running locally.
-2. Open a YouTube video that has captions.
-3. Find the **Language Assistant** sidebar beside the video.
-4. Choose a caption track if multiple tracks are available, then select **Load transcript**.
-5. Highlight caption text to translate it, or ask a question about the current phrase, grammar, slang, or tone.
-
-The extension currently expects the backend at `http://127.0.0.1:8000` and is intended for local development and testing.
-
